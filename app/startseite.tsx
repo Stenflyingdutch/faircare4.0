@@ -74,6 +74,12 @@ export default function StartseiteScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
+      <View style={styles.topBar}>
+        <Pressable style={styles.logoutButton} onPress={handleLogout}>
+          <Text style={styles.buttonText}>Abmelden</Text>
+        </Pressable>
+      </View>
+
       <Text style={styles.title}>Startseite</Text>
       <Text style={styles.subtitle}>Hallo {user.email ?? 'Nutzer'}!</Text>
 
@@ -120,10 +126,6 @@ export default function StartseiteScreen() {
           </View>
         )}
       </View>
-
-      <Pressable style={styles.logoutButton} onPress={handleLogout}>
-        <Text style={styles.buttonText}>Abmelden</Text>
-      </Pressable>
     </ScrollView>
   );
 }
@@ -132,6 +134,9 @@ const styles = StyleSheet.create({
   container: {
     padding: 24,
     gap: 14,
+  },
+  topBar: {
+    alignItems: 'flex-end',
   },
   title: {
     fontSize: 28,
@@ -192,10 +197,10 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   logoutButton: {
-    marginTop: 8,
     backgroundColor: '#ef4444',
     borderRadius: 8,
-    paddingVertical: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
   },
   buttonText: {
     color: '#fff',
