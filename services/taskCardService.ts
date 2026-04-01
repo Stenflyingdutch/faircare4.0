@@ -26,6 +26,8 @@ export type StoredTaskCard = {
   sourceResultId?: string;
 };
 
+const MIN_TASK_CARD_COUNT = 5;
+
 const taskCardTemplates: Record<
   QuizCategory,
   {
@@ -127,13 +129,18 @@ export async function generateTaskCardsFromLatestResult(uid: string) {
 
   const latestResult = latestResultDoc.data() as ResultDocument;
 
-  const categories = latestResult.topConflictCategories
+  const prioritizedCategories = latestResult.topConflictCategories
     .filter((entry) => entry.score > 0)
     .map((entry) => entry.category);
 
-  if (categories.length === 0) {
-    return { createdCount: 0 };
-  }
+  const fallbackCategories = (Object.keys(taskCardTemplates) as QuizCategory[]).filter(
+    (category) => !prioritizedCategories.includes(category),
+  );
+
+  const categories = [...prioritizedCategories, ...fallbackCategories].slice(
+    0,
+    Math.max(MIN_TASK_CARD_COUNT, prioritizedCategories.length),
+  );
 
   const createdCardIds = await Promise.all(
     categories.map(async (category) => {
