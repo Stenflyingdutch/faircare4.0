@@ -9,7 +9,6 @@ import { getGermanFirebaseError } from '@/lib/firebaseError';
 import { getCurrentUserFamilyId } from '@/services/familyService';
 
 type FamilySummary = {
-  familyId: string;
   name: string;
   inviteCode: string;
   memberCount: number;
@@ -18,7 +17,6 @@ type FamilySummary = {
 export default function StartseiteScreen() {
   const { user, logout } = useAuth();
   const [status, setStatus] = useState('Noch keine Aktion ausgeführt.');
-  const [familyId, setFamilyId] = useState<string | null>(null);
   const [childrenCount, setChildrenCount] = useState<number | null>(null);
   const [familySummary, setFamilySummary] = useState<FamilySummary | null>(null);
 
@@ -30,7 +28,6 @@ export default function StartseiteScreen() {
     setStatus('Lade Familienbezug ...');
     try {
       const currentFamilyId = await getCurrentUserFamilyId(user.uid);
-      setFamilyId(currentFamilyId);
 
       if (!currentFamilyId) {
         setFamilySummary(null);
@@ -42,7 +39,6 @@ export default function StartseiteScreen() {
       const familySnapshot = await getDoc(doc(db, 'families', currentFamilyId));
       const familyData = familySnapshot.data();
       setFamilySummary({
-        familyId: currentFamilyId,
         name: (familyData?.name as string | undefined) ?? 'Unbekannte Familie',
         inviteCode: (familyData?.inviteCode as string | undefined) ?? '-',
         memberCount: Array.isArray(familyData?.memberIds) ? familyData.memberIds.length : 0,
@@ -101,14 +97,12 @@ export default function StartseiteScreen() {
         </Pressable>
 
         <Text style={styles.status}>{status}</Text>
-        <Text style={styles.dataText}>Aktuelle Familien-ID: {familyId ?? '-'}</Text>
         <Text style={styles.dataText}>Anzahl Kinder in der Familie: {childrenCount ?? '-'}</Text>
 
         {familySummary && (
           <View style={styles.familyCard}>
             <Text style={styles.familyCardTitle}>Ihre Familie ist aktiv</Text>
             <Text style={styles.dataText}>Name: {familySummary.name}</Text>
-            <Text style={styles.dataText}>Familien-ID: {familySummary.familyId}</Text>
             <Text style={styles.dataText}>Einladungscode: {familySummary.inviteCode}</Text>
             <Text style={styles.dataText}>Mitglieder: {familySummary.memberCount}</Text>
           </View>

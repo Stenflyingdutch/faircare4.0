@@ -19,8 +19,8 @@ export default function FamilieBeitretenScreen() {
     setIsSubmitting(true);
     setStatus('Suche Familie über Einladungscode ...');
     try {
-      const result = await joinFamilyByInviteCode({ uid: user.uid, inviteCode });
-      setStatus(`Beitritt erfolgreich. Familien-ID: ${result.familyId}`);
+      await joinFamilyByInviteCode({ uid: user.uid, inviteCode });
+      setStatus('Beitritt erfolgreich.');
     } catch (error) {
       setStatus(`Fehler: ${getGermanFirebaseError(error)}`);
     } finally {
