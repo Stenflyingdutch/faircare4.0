@@ -170,7 +170,7 @@ async function calculateResultsForFamily(familyId: string, parentIds: [string, s
     mismatchQuestions.push({
       questionId: question.id,
       category: question.category,
-      prompt: question.prompt,
+      prompt: question.question,
       mismatchScore,
     });
 

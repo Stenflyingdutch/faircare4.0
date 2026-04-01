@@ -3,15 +3,31 @@ import { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { getGermanFirebaseError } from '@/lib/firebaseError';
-import { QUIZ_OPTIONS, QUIZ_QUESTIONS, type QuizOption } from '@/lib/quizQuestions';
+import {
+  QUIZ_OPTIONS,
+  QUIZ_QUESTIONS,
+  SATISFACTION_OPTIONS,
+  type QuizOption,
+  type SatisfactionOption,
+} from '@/lib/quizQuestions';
 import { loadQuizAnswersByUser, saveQuizAnswer, type StoredQuizAnswer } from '@/services/quizService';
 
-type AnswerFields = Pick<StoredQuizAnswer, 'doesIt' | 'thinksAboutIt'>;
+type AnswerFields = Pick<StoredQuizAnswer, 'doesIt' | 'thinksAboutIt' | 'satisfaction'>;
 
-const PARTS: { key: keyof AnswerFields; label: string }[] = [
-  { key: 'doesIt', label: 'Wer macht es?' },
-  { key: 'thinksAboutIt', label: 'Wer denkt daran?' },
+const RESPONSIBILITY_PARTS: { key: keyof Pick<AnswerFields, 'doesIt' | 'thinksAboutIt'>; label: string }[] = [
+  { key: 'doesIt', label: 'Wer macht es' },
+  { key: 'thinksAboutIt', label: 'Wer denkt daran' },
 ];
+
+const SATISFACTION_LABELS: Record<SatisfactionOption, string> = {
+  unhappy: 'unhappy 😞',
+  neutral: 'neutral 😐',
+  happy: 'happy 🙂',
+};
+
+function isAnswerComplete(answer: StoredQuizAnswer | undefined) {
+  return Boolean(answer?.doesIt && answer?.thinksAboutIt && answer?.satisfaction);
+}
 
 export default function QuizScreen() {
   const { user } = useAuth();
@@ -36,7 +52,7 @@ export default function QuizScreen() {
         setFamilyId(result.familyId);
         setAnswerMap(result.answers);
 
-        const nextIndex = QUIZ_QUESTIONS.findIndex((question) => !result.answers.has(question.id));
+        const nextIndex = QUIZ_QUESTIONS.findIndex((quizQuestion) => !isAnswerComplete(result.answers.get(quizQuestion.id)));
         setActiveIndex(nextIndex >= 0 ? nextIndex : 0);
       } catch (initError) {
         setError(getGermanFirebaseError(initError));
@@ -52,7 +68,7 @@ export default function QuizScreen() {
   const currentAnswer = answerMap.get(question.id);
 
   const isComplete = useMemo(
-    () => QUIZ_QUESTIONS.every((quizQuestion) => answerMap.has(quizQuestion.id)),
+    () => QUIZ_QUESTIONS.every((quizQuestion) => isAnswerComplete(answerMap.get(quizQuestion.id))),
     [answerMap],
   );
 
@@ -60,10 +76,10 @@ export default function QuizScreen() {
     return <Redirect href="/anmelden" />;
   }
 
-  const isCurrentComplete = currentAnswer?.doesIt && currentAnswer?.thinksAboutIt;
+  const isCurrentComplete = isAnswerComplete(currentAnswer);
   const isLastQuestion = activeIndex === QUIZ_QUESTIONS.length - 1;
 
-  const onSelect = async (part: keyof AnswerFields, value: QuizOption) => {
+  const onSelect = async (part: keyof AnswerFields, value: QuizOption | SatisfactionOption) => {
     if (!familyId) {
       setError('Bitte zuerst einer Familie beitreten oder eine Familie erstellen.');
       return;
@@ -77,8 +93,9 @@ export default function QuizScreen() {
       questionId: question.id,
       doesIt: previousAnswer?.doesIt ?? 'unklar',
       thinksAboutIt: previousAnswer?.thinksAboutIt ?? 'unklar',
+      satisfaction: previousAnswer?.satisfaction ?? 'neutral',
       [part]: value,
-    };
+    } as StoredQuizAnswer;
 
     setIsSaving(true);
     setError(null);
@@ -113,9 +130,23 @@ export default function QuizScreen() {
           </View>
 
           <Text style={styles.category}>{question.category}</Text>
-          <Text style={styles.prompt}>Wer {question.prompt}?</Text>
+          <Text style={styles.question}>{question.question}</Text>
 
-          {PARTS.map((part) => (
+          <View style={styles.definitionBlock}>
+            <Text style={styles.definitionTitle}>Was bedeutet daran denken:</Text>
+            {question.thinkingActions.map((action) => (
+              <Text key={`${question.id}-think-${action}`} style={styles.bullet}>{`• ${action}`}</Text>
+            ))}
+          </View>
+
+          <View style={styles.definitionBlock}>
+            <Text style={styles.definitionTitle}>Was bedeutet machen:</Text>
+            {question.doingActions.map((action) => (
+              <Text key={`${question.id}-do-${action}`} style={styles.bullet}>{`• ${action}`}</Text>
+            ))}
+          </View>
+
+          {RESPONSIBILITY_PARTS.map((part) => (
             <View key={part.key} style={styles.partBlock}>
               <Text style={styles.partTitle}>{part.label}</Text>
               <View style={styles.optionGrid}>
@@ -135,6 +166,25 @@ export default function QuizScreen() {
               </View>
             </View>
           ))}
+
+          <View style={styles.partBlock}>
+            <Text style={styles.partTitle}>Wie zufrieden bist du</Text>
+            <View style={styles.optionGrid}>
+              {SATISFACTION_OPTIONS.map((option) => {
+                const selected = currentAnswer?.satisfaction === option;
+                return (
+                  <Pressable
+                    key={`satisfaction-${option}`}
+                    style={[styles.optionButton, selected && styles.optionButtonSelected]}
+                    onPress={() => onSelect('satisfaction', option)}
+                    disabled={isSaving}
+                  >
+                    <Text style={[styles.optionText, selected && styles.optionTextSelected]}>{SATISFACTION_LABELS[option]}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
 
           {error && <Text style={styles.errorText}>Fehler: {error}</Text>}
 
@@ -206,10 +256,24 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
   },
-  prompt: {
-    textAlign: 'center',
-    fontSize: 16,
-    marginBottom: 8,
+  question: {
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  definitionBlock: {
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 10,
+    padding: 10,
+    gap: 4,
+    backgroundColor: '#f8fafc',
+  },
+  definitionTitle: {
+    fontWeight: '700',
+  },
+  bullet: {
+    fontSize: 14,
+    color: '#111827',
   },
   partBlock: {
     borderWidth: 1,
