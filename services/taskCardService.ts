@@ -24,6 +24,9 @@ export type StoredTaskCard = {
   frequency: 'daily' | 'weekly' | 'ad-hoc';
   suggestedOwner: string;
   createdAt: Timestamp;
+  relevanceStatus?: 'active' | 'discarded';
+  ownershipStatus?: 'unassigned' | 'assigned' | 'discarded';
+  assignedTo?: string | null;
   sourceResultId?: string;
   updatedAt?: Timestamp;
   decisionStatus?: 'owner_me' | 'owner_partner' | 'discussion';
@@ -249,4 +252,42 @@ export async function ensureInitialTaskCardsForCurrentFamily(uid: string) {
   }
 
   return generateTaskCardsFromLatestResult(uid);
+}
+
+export async function updateTaskCardOwnership(
+  taskCardId: string,
+  payload: {
+    ownershipStatus?: 'unassigned' | 'assigned' | 'discarded';
+    relevanceStatus?: 'active' | 'discarded';
+    assignedTo?: string | null;
+    suggestedOwner?: string;
+  },
+) {
+  await updateDoc(doc(db, collectionNames.taskCards, taskCardId), {
+    ...payload,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+export async function restoreTaskCard(taskCardId: string) {
+  await updateTaskCardOwnership(taskCardId, {
+    ownershipStatus: 'unassigned',
+    relevanceStatus: 'active',
+    assignedTo: null,
+  });
+}
+
+export async function storePostAssignmentResult(payload: {
+  familyId: string;
+  beforeAssignmentMentalLoad: Record<string, number>;
+  afterAssignmentMentalLoad: Record<string, number>;
+  assignedCardCounts: Record<string, number>;
+  discardedCardCounts: number;
+}) {
+  const resultRef = doc(collection(db, collectionNames.results));
+  await setDoc(resultRef, {
+    ...payload,
+    createdAt: serverTimestamp(),
+    type: 'post_assignment_snapshot',
+  });
 }
