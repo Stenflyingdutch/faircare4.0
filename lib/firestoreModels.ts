@@ -72,13 +72,17 @@ export interface ResultItem {
 export interface TaskCard {
   taskCardId: string;
   familyId: string;
-  title: string;
   category: string;
+  title: string;
   description: string;
-  hiddenResponsibilities: string[];
-  frequency: 'daily' | 'weekly' | 'ad-hoc';
-  suggestedOwner: string;
+  thinkingTasks: string[];
+  doingTasks: string[];
+  relevanceStatus: 'active' | 'discarded';
+  ownershipStatus: 'unassigned' | 'assigned' | 'discarded';
+  assignedTo: string | null;
+  suggestedOwner: string | null;
   createdAt: FirestoreDate;
+  updatedAt: FirestoreDate;
 }
 
 export interface TaskAssignment {
