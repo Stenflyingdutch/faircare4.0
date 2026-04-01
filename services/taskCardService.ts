@@ -1,5 +1,6 @@
 import {
   collection,
+  deleteDoc,
   doc,
   getDocs,
   query,
@@ -331,6 +332,74 @@ function normalizeText(value: string) {
   return value.trim().toLocaleLowerCase('de-DE');
 }
 
+function createCardKey(card: { category?: string; title?: string }) {
+  return `${normalizeText(card.category ?? '')}::${normalizeText(card.title ?? '')}`;
+}
+
+function cardPriority(card: Partial<StoredTaskCard> & { updatedAt?: Timestamp; createdAt?: Timestamp }) {
+  const isAssigned = card.ownershipStatus === 'assigned' ? 1 : 0;
+  const isActive = card.relevanceStatus === 'active' ? 1 : 0;
+  const updatedAt = getTimestampMillis(card.updatedAt);
+  const createdAt = getTimestampMillis(card.createdAt);
+  return [isAssigned, isActive, updatedAt, createdAt] as const;
+}
+
+function isBetterCard(
+  first: Partial<StoredTaskCard> & { updatedAt?: Timestamp; createdAt?: Timestamp },
+  second: Partial<StoredTaskCard> & { updatedAt?: Timestamp; createdAt?: Timestamp },
+) {
+  const firstPriority = cardPriority(first);
+  const secondPriority = cardPriority(second);
+
+  for (let index = 0; index < firstPriority.length; index += 1) {
+    if (firstPriority[index] !== secondPriority[index]) {
+      return firstPriority[index] > secondPriority[index];
+    }
+  }
+
+  return false;
+}
+
+async function removeDuplicateTaskCards(
+  snapshots: Awaited<ReturnType<typeof getDocs>>['docs'],
+) {
+  const groupedByKey = new Map<string, typeof snapshots>();
+
+  snapshots.forEach((snapshot) => {
+    const data = snapshot.data() as Partial<StoredTaskCard>;
+    const key = createCardKey(data);
+    const group = groupedByKey.get(key) ?? [];
+    group.push(snapshot);
+    groupedByKey.set(key, group);
+  });
+
+  const duplicateIdsToDelete: string[] = [];
+
+  groupedByKey.forEach((group) => {
+    if (group.length < 2) {
+      return;
+    }
+
+    const sorted = [...group].sort((a, b) => {
+      const aData = a.data() as Partial<StoredTaskCard> & { updatedAt?: Timestamp; createdAt?: Timestamp };
+      const bData = b.data() as Partial<StoredTaskCard> & { updatedAt?: Timestamp; createdAt?: Timestamp };
+      if (isBetterCard(aData, bData)) {
+        return -1;
+      }
+      if (isBetterCard(bData, aData)) {
+        return 1;
+      }
+      return 0;
+    });
+
+    sorted.slice(1).forEach((snapshot) => {
+      duplicateIdsToDelete.push(snapshot.id);
+    });
+  });
+
+  await Promise.all(duplicateIdsToDelete.map((taskCardId) => deleteDoc(doc(db, collectionNames.taskCards, taskCardId))));
+}
+
 export async function ensureInitialTaskCardsForCurrentFamily(uid: string) {
   const familyId = await getCurrentUserFamilyId(uid);
 
@@ -344,10 +413,14 @@ export async function ensureInitialTaskCardsForCurrentFamily(uid: string) {
     loadLatestQuizAnswers(familyId),
   ]);
 
+  await removeDuplicateTaskCards(existingSnapshot.docs);
+
+  const deduplicatedSnapshot = await getDocs(query(collection(db, collectionNames.taskCards), where('familyId', '==', familyId)));
+
   const existingKeys = new Set(
-    existingSnapshot.docs.map((snapshot) => {
+    deduplicatedSnapshot.docs.map((snapshot) => {
       const data = snapshot.data() as Partial<StoredTaskCard>;
-      return `${normalizeText(data.category ?? '')}::${normalizeText(data.title ?? '')}`;
+      return createCardKey(data);
     }),
   );
 
