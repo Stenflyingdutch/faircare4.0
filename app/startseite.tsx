@@ -96,6 +96,10 @@ export default function StartseiteScreen() {
           <Text style={styles.buttonText}>Fairness-Quiz starten</Text>
         </Pressable>
 
+        <Pressable style={styles.resultsLink} onPress={() => router.push('/ergebnisse' as never)}>
+          <Text style={styles.buttonText}>Ergebnisse ansehen</Text>
+        </Pressable>
+
         <Pressable style={styles.loadButton} onPress={loadFamilyData}>
           <Text style={styles.buttonText}>Familiendaten laden</Text>
         </Pressable>
@@ -170,6 +174,11 @@ const styles = StyleSheet.create({
   },
   quizLink: {
     backgroundColor: '#f59e0b',
+    borderRadius: 8,
+    paddingVertical: 12,
+  },
+  resultsLink: {
+    backgroundColor: '#0f766e',
     borderRadius: 8,
     paddingVertical: 12,
   },
