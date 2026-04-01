@@ -1,6 +1,7 @@
 import {
   collection,
   doc,
+  deleteDoc,
   getDocs,
   query,
   serverTimestamp,
@@ -24,6 +25,8 @@ export type StoredTaskCard = {
   suggestedOwner: string;
   createdAt: Timestamp;
   sourceResultId?: string;
+  decisionStatus?: 'owner_me' | 'owner_partner' | 'discussion';
+  decidedAt?: Timestamp;
 };
 
 const MIN_TASK_CARD_COUNT = 5;
@@ -208,4 +211,27 @@ export async function updateTaskCardDecision(
   }
 
   await updateDoc(doc(db, collectionNames.taskCards, taskCardId), updatePayload);
+}
+
+export async function updateTaskCard(
+  taskCardId: string,
+  payload: Partial<Pick<StoredTaskCard, 'title' | 'category' | 'description' | 'hiddenResponsibilities' | 'frequency' | 'suggestedOwner'>>,
+) {
+  await updateDoc(doc(db, collectionNames.taskCards, taskCardId), payload);
+}
+
+export async function deleteTaskCard(taskCardId: string) {
+  await deleteDoc(doc(db, collectionNames.taskCards, taskCardId));
+}
+
+export async function createTaskCard(
+  familyId: string,
+  payload: Pick<StoredTaskCard, 'title' | 'category' | 'description' | 'hiddenResponsibilities' | 'frequency' | 'suggestedOwner'>,
+) {
+  const taskCardRef = doc(collection(db, collectionNames.taskCards));
+  await setDoc(taskCardRef, {
+    familyId,
+    ...payload,
+    createdAt: serverTimestamp(),
+  } satisfies Omit<StoredTaskCard, 'createdAt'> & { createdAt: ReturnType<typeof serverTimestamp> });
 }
