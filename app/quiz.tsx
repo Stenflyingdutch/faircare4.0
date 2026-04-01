@@ -6,12 +6,11 @@ import { getGermanFirebaseError } from '@/lib/firebaseError';
 import { QUIZ_OPTIONS, QUIZ_QUESTIONS, type QuizOption } from '@/lib/quizQuestions';
 import { loadQuizAnswersByUser, saveQuizAnswer, type StoredQuizAnswer } from '@/services/quizService';
 
-type AnswerFields = Pick<StoredQuizAnswer, 'doesIt' | 'thinksAboutIt' | 'feelsResponsible'>;
+type AnswerFields = Pick<StoredQuizAnswer, 'doesIt' | 'thinksAboutIt'>;
 
 const PARTS: { key: keyof AnswerFields; label: string }[] = [
   { key: 'doesIt', label: 'Wer macht es?' },
   { key: 'thinksAboutIt', label: 'Wer denkt daran?' },
-  { key: 'feelsResponsible', label: 'Wer ist verantwortlich?' },
 ];
 
 export default function QuizScreen() {
@@ -61,8 +60,7 @@ export default function QuizScreen() {
     return <Redirect href="/anmelden" />;
   }
 
-  const isCurrentComplete =
-    currentAnswer?.doesIt && currentAnswer?.thinksAboutIt && currentAnswer?.feelsResponsible;
+  const isCurrentComplete = currentAnswer?.doesIt && currentAnswer?.thinksAboutIt;
   const isLastQuestion = activeIndex === QUIZ_QUESTIONS.length - 1;
 
   const onSelect = async (part: keyof AnswerFields, value: QuizOption) => {
@@ -79,7 +77,6 @@ export default function QuizScreen() {
       questionId: question.id,
       doesIt: previousAnswer?.doesIt ?? 'unklar',
       thinksAboutIt: previousAnswer?.thinksAboutIt ?? 'unklar',
-      feelsResponsible: previousAnswer?.feelsResponsible ?? 'unklar',
       [part]: value,
     };
 

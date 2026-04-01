@@ -10,7 +10,6 @@ export interface StoredQuizAnswer {
   questionId: string;
   doesIt: QuizOption;
   thinksAboutIt: QuizOption;
-  feelsResponsible: QuizOption;
 }
 
 function getQuizAnswerDocId(params: { familyId: string; userId: string; questionId: string }) {

@@ -67,7 +67,7 @@ const categoryPrompts: Record<QuizCategory, string[]> = {
     'erinnert an anstehende To-dos',
     'entscheidet Prioritäten im Familienalltag',
     'denkt an Geschenke, Feiern und besondere Termine',
-    'hat das Gefühl, ständig alles mitdenken zu müssen',
+    'plant vorausschauend nächste Schritte für die Familie',
   ],
 };
 

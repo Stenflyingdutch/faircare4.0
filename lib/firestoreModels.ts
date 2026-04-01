@@ -33,7 +33,6 @@ export interface QuizAnswer {
   questionId: string;
   doesIt: string;
   thinksAboutIt: string;
-  feelsResponsible: string;
   updatedAt: FirestoreDate;
 }
 
