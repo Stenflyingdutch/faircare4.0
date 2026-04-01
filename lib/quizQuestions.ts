@@ -1,82 +1,88 @@
-export const QUIZ_CATEGORIES = [
-  'Ernährung',
-  'Schlaf',
-  'Hygiene',
-  'Gesundheit',
-  'Organisation',
-  'Haushalt mit Baby',
-  'Mental Load',
-] as const;
-
-export type QuizCategory = (typeof QUIZ_CATEGORIES)[number];
-
 export const QUIZ_OPTIONS = ['ich', 'partner', 'beide', 'unklar'] as const;
 export type QuizOption = (typeof QUIZ_OPTIONS)[number];
 
+export const SATISFACTION_OPTIONS = ['unhappy', 'neutral', 'happy'] as const;
+export type SatisfactionOption = (typeof SATISFACTION_OPTIONS)[number];
+
 export interface QuizQuestion {
   id: string;
-  category: QuizCategory;
-  prompt: string;
+  category: string;
+  question: string;
+  thinkingActions: string[];
+  doingActions: string[];
 }
 
-const categoryPrompts: Record<QuizCategory, string[]> = {
-  Ernährung: [
-    'plant Mahlzeiten fürs Baby',
-    'bereitet Fläschchen oder Essen vor',
-    'achtet auf Vorräte für Babynahrung',
-    'kümmert sich um Essenszeiten',
-    'führt neue Lebensmittel ein',
-  ],
-  Schlaf: [
-    'bringt das Baby abends ins Bett',
-    'übernimmt nächtliches Beruhigen',
-    'achtet auf Schlafrhythmus und Nickerchen',
-    'bereitet die Schlafumgebung vor',
-    'reagiert zuerst bei nächtlichem Aufwachen',
-  ],
-  Hygiene: [
-    'wechselt Windeln',
-    'organisiert Baden und Körperpflege',
-    'hält Wickelplatz und Pflegeartikel bereit',
-    'achtet auf saubere Kleidung fürs Baby',
-    'kürzt Nägel und achtet auf Hautpflege',
-  ],
-  Gesundheit: [
-    'vereinbart Arzttermine',
-    'beobachtet Krankheitssymptome',
-    'verabreicht Medikamente oder Vitamine',
-    'kümmert sich um Impfheft und Unterlagen',
-    'entscheidet bei gesundheitlichen Fragen zuerst',
-  ],
-  Organisation: [
-    'plant den Tagesablauf mit Baby',
-    'organisiert Ausflüge und Termine',
-    'koordiniert Betreuung durch Familie oder Freunde',
-    'packt die Wickeltasche für unterwegs',
-    'hält wichtige Dokumente griffbereit',
-  ],
-  'Haushalt mit Baby': [
-    'wäscht Babykleidung',
-    'hält Küche und Fläschchen sauber',
-    'kümmert sich um Einkäufe für den Haushalt',
-    'räumt Spiel- und Babybereiche auf',
-    'organisiert Haushalt trotz Babyalltag',
-  ],
-  'Mental Load': [
-    'behält alle Babyaufgaben im Blick',
-    'erinnert an anstehende To-dos',
-    'entscheidet Prioritäten im Familienalltag',
-    'denkt an Geschenke, Feiern und besondere Termine',
-    'plant vorausschauend nächste Schritte für die Familie',
-  ],
-};
+export const QUIZ_QUESTIONS: QuizQuestion[] = [
+  {
+    id: 'ernaehrung-1',
+    category: 'Ernährung',
+    question: 'Wer organisiert und übernimmt die Mahlzeiten für das Kind',
+    thinkingActions: ['wissen, wann Hunger kommt', 'planen, was gegessen wird', 'Vorrat im Blick'],
+    doingActions: ['Essen vorbereiten', 'Fläschchen machen', 'Essen geben'],
+  },
+  {
+    id: 'ernaehrung-planung-1',
+    category: 'Ernährung Planung',
+    question: 'Wer stellt sicher, dass genug Essen für den Tag vorhanden ist',
+    thinkingActions: ['Bedarf abschätzen', 'Einkauf im Kopf'],
+    doingActions: ['einkaufen', 'vorbereiten'],
+  },
+  {
+    id: 'schlaf-1',
+    category: 'Schlaf',
+    question: 'Wer organisiert und übernimmt die Einschlafroutine',
+    thinkingActions: ['Schlafzeit im Blick', 'Routine planen'],
+    doingActions: ['Kind ins Bett bringen', 'begleiten'],
+  },
+  {
+    id: 'schlafzeiten-1',
+    category: 'Schlafzeiten',
+    question: 'Wer sorgt dafür, dass Schlafenszeiten eingehalten werden',
+    thinkingActions: ['Uhr im Blick', 'Müdigkeit erkennen'],
+    doingActions: ['aktiv ins Bett bringen'],
+  },
+  {
+    id: 'nacht-1',
+    category: 'Nacht',
+    question: 'Wer reagiert nachts, wenn das Kind aufwacht',
+    thinkingActions: ['aufmerksam bleiben', 'Geräusche wahrnehmen'],
+    doingActions: ['aufstehen', 'beruhigen'],
+  },
+  {
+    id: 'hygiene-1',
+    category: 'Hygiene',
+    question: 'Wer organisiert und übernimmt Pflege und Wickeln',
+    thinkingActions: ['Bedarf erkennen', 'Zeitpunkte im Kopf'],
+    doingActions: ['wickeln', 'waschen'],
+  },
+  {
+    id: 'vorrat-1',
+    category: 'Vorrat',
+    question: 'Wer sorgt dafür, dass Windeln und Kleidung vorhanden sind',
+    thinkingActions: ['Vorrat prüfen', 'Bedarf sehen'],
+    doingActions: ['kaufen', 'vorbereiten'],
+  },
+  {
+    id: 'gesundheit-1',
+    category: 'Gesundheit',
+    question: 'Wer organisiert Arzttermine und Gesundheitsthemen',
+    thinkingActions: ['Termine im Kopf', 'Symptome beobachten'],
+    doingActions: ['Termin buchen', 'hingehen'],
+  },
+  {
+    id: 'tagesplanung-1',
+    category: 'Tagesplanung',
+    question: 'Wer plant und koordiniert den Tagesablauf',
+    thinkingActions: ['Struktur planen', 'Bedürfnisse im Blick'],
+    doingActions: ['Ablauf umsetzen'],
+  },
+  {
+    id: 'haushalt-1',
+    category: 'Haushalt',
+    question: 'Wer organisiert und erledigt die Wäsche des Kindes',
+    thinkingActions: ['sehen, was fehlt', 'planen'],
+    doingActions: ['waschen', 'sortieren'],
+  },
+];
 
-const ALL_QUIZ_QUESTIONS: QuizQuestion[] = QUIZ_CATEGORIES.flatMap((category) =>
-  categoryPrompts[category].map((prompt, index) => ({
-    id: `${category.toLowerCase().replace(/\s+/g, '-')}-${index + 1}`,
-    category,
-    prompt,
-  })),
-);
-
-export const QUIZ_QUESTIONS: QuizQuestion[] = ALL_QUIZ_QUESTIONS.slice(0, 10);
+export type QuizCategory = (typeof QUIZ_QUESTIONS)[number]['category'];
