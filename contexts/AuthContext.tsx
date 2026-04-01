@@ -14,11 +14,12 @@ import {
   User,
 } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
+import { createUserProfile } from '@/services/familyService';
 
 type AuthContextValue = {
   user: User | null;
   loading: boolean;
-  register: (email: string, password: string) => Promise<void>;
+  register: (email: string, password: string, displayName: string) => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
 };
@@ -42,8 +43,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     () => ({
       user,
       loading,
-      register: async (email: string, password: string) => {
-        await createUserWithEmailAndPassword(auth, email, password);
+      register: async (email: string, password: string, displayName: string) => {
+        const credential = await createUserWithEmailAndPassword(auth, email, password);
+        await createUserProfile({
+          uid: credential.user.uid,
+          email: credential.user.email ?? email,
+          displayName,
+        });
       },
       login: async (email: string, password: string) => {
         await signInWithEmailAndPassword(auth, email, password);

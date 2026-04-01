@@ -1,0 +1,148 @@
+import {
+  arrayUnion,
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  limit,
+  query,
+  serverTimestamp,
+  setDoc,
+  updateDoc,
+  where,
+} from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import type { ChildProfile, Family, UserProfile } from '@/lib/firestoreModels';
+
+const INVITE_CODE_LENGTH = 6;
+const INVITE_CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+
+const collectionNames = {
+  users: 'users',
+  families: 'families',
+  children: 'children',
+  quizAnswers: 'quizAnswers',
+  results: 'results',
+  taskCards: 'taskCards',
+  taskAssignments: 'taskAssignments',
+  todos: 'todos',
+  mentalLoadItems: 'mentalLoadItems',
+  checkins: 'checkins',
+} as const;
+
+function generateInviteCode() {
+  let code = '';
+  for (let i = 0; i < INVITE_CODE_LENGTH; i += 1) {
+    code += INVITE_CODE_CHARS[Math.floor(Math.random() * INVITE_CODE_CHARS.length)];
+  }
+  return code;
+}
+
+async function generateUniqueInviteCode(): Promise<string> {
+  let foundUnique = false;
+  let inviteCode = '';
+
+  while (!foundUnique) {
+    inviteCode = generateInviteCode();
+    const existing = await getDocs(
+      query(collection(db, collectionNames.families), where('inviteCode', '==', inviteCode), limit(1)),
+    );
+    foundUnique = existing.empty;
+  }
+
+  return inviteCode;
+}
+
+export async function createUserProfile(params: {
+  uid: string;
+  email: string;
+  displayName: string;
+}) {
+  const userRef = doc(db, collectionNames.users, params.uid);
+  await setDoc(
+    userRef,
+    {
+      uid: params.uid,
+      email: params.email,
+      displayName: params.displayName,
+      familyId: null,
+      createdAt: serverTimestamp(),
+    } satisfies Omit<UserProfile, 'createdAt'> & { createdAt: ReturnType<typeof serverTimestamp> },
+    { merge: true },
+  );
+}
+
+export async function createFamily(params: { uid: string; familyName: string }) {
+  const familyId = params.uid;
+  const inviteCode = await generateUniqueInviteCode();
+
+  const familyRef = doc(db, collectionNames.families, familyId);
+  const userRef = doc(db, collectionNames.users, params.uid);
+
+  const existingFamily = await getDoc(familyRef);
+  if (existingFamily.exists()) {
+    throw new Error('Für diesen Benutzer existiert bereits eine Familie.');
+  }
+
+  await setDoc(familyRef, {
+    familyId,
+    name: params.familyName,
+    inviteCode,
+    memberIds: [params.uid],
+    createdAt: serverTimestamp(),
+  } satisfies Omit<Family, 'createdAt'> & { createdAt: ReturnType<typeof serverTimestamp> });
+
+  await setDoc(userRef, { familyId }, { merge: true });
+
+  return { familyId, inviteCode };
+}
+
+export async function joinFamilyByInviteCode(params: { uid: string; inviteCode: string }) {
+  const cleanCode = params.inviteCode.trim().toUpperCase();
+  const familyQuery = query(
+    collection(db, collectionNames.families),
+    where('inviteCode', '==', cleanCode),
+    limit(1),
+  );
+  const familySnapshot = await getDocs(familyQuery);
+
+  if (familySnapshot.empty) {
+    throw new Error('Kein Familienkonto mit diesem Einladungscode gefunden.');
+  }
+
+  const familyDoc = familySnapshot.docs[0];
+  const familyRef = doc(db, collectionNames.families, familyDoc.id);
+  const userRef = doc(db, collectionNames.users, params.uid);
+
+  const familyData = familyDoc.data() as Pick<Family, 'familyId'>;
+  const familyId = familyData.familyId || familyDoc.id;
+
+  await updateDoc(familyRef, { memberIds: arrayUnion(params.uid) });
+  await setDoc(userRef, { familyId }, { merge: true });
+
+  return { familyId };
+}
+
+export async function createChildProfile(params: {
+  familyId: string;
+  name: string;
+  birthDate: string;
+}) {
+  const childRef = doc(collection(db, collectionNames.children));
+  await setDoc(childRef, {
+    childId: childRef.id,
+    familyId: params.familyId,
+    name: params.name,
+    birthDate: params.birthDate,
+    createdAt: serverTimestamp(),
+  } satisfies Omit<ChildProfile, 'createdAt'> & { createdAt: ReturnType<typeof serverTimestamp> });
+
+  return { childId: childRef.id };
+}
+
+export async function getCurrentUserFamilyId(uid: string) {
+  const userSnapshot = await getDoc(doc(db, collectionNames.users, uid));
+  return (userSnapshot.data()?.familyId as string | null | undefined) ?? null;
+}
+
+export { collectionNames };
