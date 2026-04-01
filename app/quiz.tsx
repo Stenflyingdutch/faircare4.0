@@ -14,12 +14,10 @@ import { loadQuizAnswersByUser, saveQuizAnswer, type StoredQuizAnswer } from '@/
 
 type AnswerFields = Pick<StoredQuizAnswer, 'doesIt' | 'thinksAboutIt' | 'satisfaction'>;
 
-const OWNERSHIP_OPTIONS_LABEL = 'ich • partner • beide • unklar';
-
 const SATISFACTION_LABELS: Record<SatisfactionOption, string> = {
-  unhappy: '😞',
-  neutral: '😐',
-  happy: '🙂',
+  unhappy: 'unzufrieden',
+  neutral: 'neutral',
+  happy: 'zufrieden',
 };
 
 function isAnswerComplete(answer: StoredQuizAnswer | undefined) {
@@ -131,10 +129,9 @@ export default function QuizScreen() {
 
           <View style={styles.partBlock}>
             <Text style={styles.partTitle}>Dran denken</Text>
-            <Text style={styles.helperText}>
-              (Beispiele: {question.thinkingActions.join(' · ')})
+            <Text style={styles.examplesText}>
+              Beispiele: {question.thinkingActions.join(' · ')}
             </Text>
-            <Text style={styles.helperText}>Auswahl: {OWNERSHIP_OPTIONS_LABEL}</Text>
             <View style={styles.optionGrid}>
               {QUIZ_OPTIONS.map((option) => {
                 const selected = currentAnswer?.thinksAboutIt === option;
@@ -154,10 +151,9 @@ export default function QuizScreen() {
 
           <View style={styles.partBlock}>
             <Text style={styles.partTitle}>Machen</Text>
-            <Text style={styles.helperText}>
-              (Beispiele: {question.doingActions.join(' · ')})
+            <Text style={styles.examplesText}>
+              Beispiele: {question.doingActions.join(' · ')}
             </Text>
-            <Text style={styles.helperText}>Auswahl: {OWNERSHIP_OPTIONS_LABEL}</Text>
             <View style={styles.optionGrid}>
               {QUIZ_OPTIONS.map((option) => {
                 const selected = currentAnswer?.doesIt === option;
@@ -176,7 +172,7 @@ export default function QuizScreen() {
           </View>
 
           <View style={styles.partBlock}>
-            <Text style={styles.partTitle}>Wie zufrieden bist du (am Ende)</Text>
+            <Text style={styles.partTitle}>Wie zufrieden bist du</Text>
             <View style={styles.optionGrid}>
               {SATISFACTION_OPTIONS.map((option) => {
                 const selected = currentAnswer?.satisfaction === option;
@@ -283,6 +279,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#334155',
   },
+  examplesText: {
+    fontSize: 14,
+    color: '#334155',
+    fontStyle: 'italic',
+  },
   partBlock: {
     borderWidth: 1,
     borderColor: '#e5e7eb',
@@ -318,8 +319,9 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
   smileyText: {
-    fontSize: 24,
-    lineHeight: 28,
+    fontSize: 16,
+    lineHeight: 20,
+    fontWeight: '600',
   },
   navigationRow: {
     flexDirection: 'row',
