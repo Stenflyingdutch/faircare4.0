@@ -2,7 +2,7 @@ import { Redirect } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { doc, getDoc } from 'firebase/firestore';
 import { useCallback, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { db } from '@/lib/firebase';
 import { getGermanFirebaseError } from '@/lib/firebaseError';
@@ -45,7 +45,7 @@ function toEditableCard(card: TaskCardListItem): EditableCardFields {
     title: card.title,
     category: card.category,
     description: card.description,
-    hiddenResponsibilities: card.hiddenResponsibilities.join(', '),
+    hiddenResponsibilities: (card.hiddenResponsibilities ?? []).join(', '),
     frequency: card.frequency,
     suggestedOwner: card.suggestedOwner,
   };
@@ -63,6 +63,7 @@ export default function KartenScreen() {
   const [draft, setDraft] = useState<EditableCardFields | null>(null);
   const [ownerFilter, setOwnerFilter] = useState<OwnerFilter>('all');
   const [isSaving, setIsSaving] = useState(false);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [newCardDraft, setNewCardDraft] = useState<EditableCardFields>({
     title: '',
     category: taskCardCategories[0],
@@ -206,7 +207,7 @@ export default function KartenScreen() {
   const handleCreateCard = async () => {
     if (!familyId || !newCardDraft.title.trim() || !newCardDraft.description.trim() || isSaving) {
       setStatus('Bitte Titel und Beschreibung für die neue Karte ausfüllen.');
-      return;
+      return false;
     }
 
     setIsSaving(true);
@@ -229,8 +230,10 @@ export default function KartenScreen() {
         suggestedOwner: user?.uid ?? '',
       });
       await loadCards();
+      return true;
     } catch (error) {
       setStatus(`Fehler beim Erstellen: ${getGermanFirebaseError(error)}`);
+      return false;
     } finally {
       setIsSaving(false);
     }
@@ -310,78 +313,100 @@ export default function KartenScreen() {
       <Text style={styles.statusText}>{status}</Text>
       {isLoading && <Text style={styles.infoText}>Lade ...</Text>}
 
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Neue Karte anlegen</Text>
-        <TextInput
-          style={styles.input}
-          value={newCardDraft.title}
-          placeholder="Titel"
-          onChangeText={(value) => setNewCardDraft((current) => ({ ...current, title: value }))}
-        />
-        <TextInput
-          style={styles.input}
-          value={newCardDraft.description}
-          placeholder="Beschreibung"
-          onChangeText={(value) => setNewCardDraft((current) => ({ ...current, description: value }))}
-        />
-        <TextInput
-          style={styles.input}
-          value={newCardDraft.hiddenResponsibilities}
-          placeholder="Versteckte Aufgaben (Komma-getrennt)"
-          onChangeText={(value) => setNewCardDraft((current) => ({ ...current, hiddenResponsibilities: value }))}
-        />
+      <Pressable style={styles.createButton} onPress={() => setIsCreateModalOpen(true)}>
+        <Text style={styles.buttonText}>Neue Karte anlegen</Text>
+      </Pressable>
 
-        <Text style={styles.inlineLabel}>Kategorie</Text>
-        <View style={styles.optionRow}>
-          {taskCardCategories.map((category: QuizCategory) => (
-            <Pressable
-              key={`new-${category}`}
-              style={[styles.optionButton, newCardDraft.category === category && styles.optionButtonActive]}
-              onPress={() => setNewCardDraft((current) => ({ ...current, category }))}
-            >
-              <Text style={styles.optionText}>{category}</Text>
-            </Pressable>
-          ))}
+      <Modal visible={isCreateModalOpen} animationType="slide" transparent onRequestClose={() => setIsCreateModalOpen(false)}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <Text style={styles.cardTitle}>Neue Karte anlegen</Text>
+            <TextInput
+              style={styles.input}
+              value={newCardDraft.title}
+              placeholder="Titel"
+              onChangeText={(value) => setNewCardDraft((current) => ({ ...current, title: value }))}
+            />
+            <TextInput
+              style={styles.input}
+              value={newCardDraft.description}
+              placeholder="Beschreibung"
+              onChangeText={(value) => setNewCardDraft((current) => ({ ...current, description: value }))}
+            />
+            <TextInput
+              style={styles.input}
+              value={newCardDraft.hiddenResponsibilities}
+              placeholder="Versteckte Aufgaben (Komma-getrennt)"
+              onChangeText={(value) => setNewCardDraft((current) => ({ ...current, hiddenResponsibilities: value }))}
+            />
+
+            <Text style={styles.inlineLabel}>Kategorie</Text>
+            <View style={styles.optionRow}>
+              {taskCardCategories.map((category: QuizCategory) => (
+                <Pressable
+                  key={`new-${category}`}
+                  style={[styles.optionButton, newCardDraft.category === category && styles.optionButtonActive]}
+                  onPress={() => setNewCardDraft((current) => ({ ...current, category }))}
+                >
+                  <Text style={styles.optionText}>{category}</Text>
+                </Pressable>
+              ))}
+            </View>
+
+            <Text style={styles.inlineLabel}>Häufigkeit</Text>
+            <View style={styles.optionRow}>
+              {frequencyOptions.map((frequency) => (
+                <Pressable
+                  key={`new-${frequency}`}
+                  style={[styles.optionButton, newCardDraft.frequency === frequency && styles.optionButtonActive]}
+                  onPress={() => setNewCardDraft((current) => ({ ...current, frequency }))}
+                >
+                  <Text style={styles.optionText}>{frequency}</Text>
+                </Pressable>
+              ))}
+            </View>
+
+            <Text style={styles.inlineLabel}>Zuständig</Text>
+            <View style={styles.optionRow}>
+              <Pressable
+                style={[styles.optionButton, newCardDraft.suggestedOwner === user.uid && styles.optionButtonActive]}
+                onPress={() => setNewCardDraft((current) => ({ ...current, suggestedOwner: user.uid }))}
+              >
+                <Text style={styles.optionText}>Ich</Text>
+              </Pressable>
+              {partnerId && (
+                <Pressable
+                  style={[
+                    styles.optionButton,
+                    newCardDraft.suggestedOwner === partnerId && styles.optionButtonActive,
+                  ]}
+                  onPress={() => setNewCardDraft((current) => ({ ...current, suggestedOwner: partnerId }))}
+                >
+                  <Text style={styles.optionText}>Partner</Text>
+                </Pressable>
+              )}
+            </View>
+
+            <View style={styles.actionsRow}>
+              <Pressable
+                style={[styles.actionButton, styles.saveButton]}
+                onPress={async () => {
+                  const created = await handleCreateCard();
+                  if (created) {
+                    setIsCreateModalOpen(false);
+                  }
+                }}
+                disabled={isSaving}
+              >
+                <Text style={styles.actionText}>Speichern</Text>
+              </Pressable>
+              <Pressable style={[styles.actionButton, styles.cancelButton]} onPress={() => setIsCreateModalOpen(false)}>
+                <Text style={styles.actionText}>Abbrechen</Text>
+              </Pressable>
+            </View>
+          </View>
         </View>
-
-        <Text style={styles.inlineLabel}>Häufigkeit</Text>
-        <View style={styles.optionRow}>
-          {frequencyOptions.map((frequency) => (
-            <Pressable
-              key={`new-${frequency}`}
-              style={[styles.optionButton, newCardDraft.frequency === frequency && styles.optionButtonActive]}
-              onPress={() => setNewCardDraft((current) => ({ ...current, frequency }))}
-            >
-              <Text style={styles.optionText}>{frequency}</Text>
-            </Pressable>
-          ))}
-        </View>
-
-        <Text style={styles.inlineLabel}>Zuständig</Text>
-        <View style={styles.optionRow}>
-          <Pressable
-            style={[styles.optionButton, newCardDraft.suggestedOwner === user.uid && styles.optionButtonActive]}
-            onPress={() => setNewCardDraft((current) => ({ ...current, suggestedOwner: user.uid }))}
-          >
-            <Text style={styles.optionText}>Ich</Text>
-          </Pressable>
-          {partnerId && (
-            <Pressable
-              style={[
-                styles.optionButton,
-                newCardDraft.suggestedOwner === partnerId && styles.optionButtonActive,
-              ]}
-              onPress={() => setNewCardDraft((current) => ({ ...current, suggestedOwner: partnerId }))}
-            >
-              <Text style={styles.optionText}>Partner</Text>
-            </Pressable>
-          )}
-        </View>
-
-        <Pressable style={styles.createButton} onPress={handleCreateCard} disabled={isSaving}>
-          <Text style={styles.buttonText}>Neue Karte speichern</Text>
-        </Pressable>
-      </View>
+      </Modal>
 
       {Object.entries(groupedCards).map(([category, categoryCards]) => (
         <View key={category} style={styles.categorySection}>
@@ -534,6 +559,21 @@ const styles = StyleSheet.create({
     backgroundColor: '#0891b2',
     borderRadius: 8,
     paddingVertical: 10,
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.45)',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  modalCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    padding: 12,
+    gap: 8,
+    maxHeight: '85%',
   },
   buttonText: {
     color: '#ffffff',
