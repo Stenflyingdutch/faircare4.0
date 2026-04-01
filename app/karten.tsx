@@ -28,6 +28,15 @@ type EditableCardFields = {
   suggestedOwner: string;
 };
 
+function normalizeCard(card: TaskCardListItem): TaskCardListItem {
+  return {
+    ...card,
+    description: card.description ?? '',
+    hiddenResponsibilities: card.hiddenResponsibilities ?? [],
+    frequency: card.frequency ?? 'weekly',
+  };
+}
+
 const frequencyOptions: Frequency[] = ['daily', 'weekly', 'ad-hoc'];
 const taskCardCategories: QuizCategory[] = [
   'Ernährung',
@@ -95,7 +104,7 @@ export default function KartenScreen() {
       const resolvedPartnerId = memberIds.find((memberId) => memberId !== user.uid) ?? null;
       setPartnerId(resolvedPartnerId);
 
-      const loadedCards = await loadTaskCardsByFamilyId(resolvedFamilyId);
+      const loadedCards = (await loadTaskCardsByFamilyId(resolvedFamilyId)).map(normalizeCard);
       setCards(loadedCards);
 
       const ownerIds = [...new Set(loadedCards.map((card) => card.suggestedOwner).filter(Boolean))];
