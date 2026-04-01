@@ -1,69 +1,41 @@
-import { Redirect } from 'expo-router';
-import { Timestamp, addDoc, collection, getDocs, limit, orderBy, query } from 'firebase/firestore';
+import { Redirect, router } from 'expo-router';
+import { doc, getDoc, getDocs, query, where, collection } from 'firebase/firestore';
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { db } from '@/lib/firebase';
 import { getGermanFirebaseError } from '@/lib/firebaseError';
 
-type HealthCheck = {
-  message?: string;
-  source?: string;
-  createdAt?: Timestamp | null;
-};
-
 export default function StartseiteScreen() {
   const { user, logout } = useAuth();
   const [status, setStatus] = useState('Noch keine Aktion ausgeführt.');
-  const [anzahl, setAnzahl] = useState<number | null>(null);
-  const [erstesDokument, setErstesDokument] = useState<HealthCheck | null>(null);
+  const [familyId, setFamilyId] = useState<string | null>(null);
+  const [childrenCount, setChildrenCount] = useState<number | null>(null);
 
   if (!user) {
     return <Redirect href="/anmelden" />;
   }
 
-  const formatHealthCheck = (doc: HealthCheck | null) => {
-    if (!doc) {
-      return '-';
-    }
-
-    const createdAt = doc.createdAt instanceof Timestamp
-      ? doc.createdAt.toDate().toLocaleString('de-DE')
-      : 'kein Datum im Dokument';
-
-    return `Nachricht: ${doc.message ?? '-'} | Quelle: ${doc.source ?? '-'} | Erstellt am: ${createdAt}`;
-  };
-
-  const handleWrite = async () => {
-    setStatus('Schreibe Firestore-Testdaten ...');
+  const loadFamilyData = async () => {
+    setStatus('Lade Familienbezug ...');
     try {
-      const docRef = await addDoc(collection(db, 'healthChecks'), {
-        message: 'Firestore Test erfolgreich geschrieben',
-        createdAt: Timestamp.now(),
-        source: 'expo-app',
-      });
-      setStatus(`Erfolg: Dokument geschrieben mit ID ${docRef.id}`);
-    } catch (error) {
-      const message = getGermanFirebaseError(error);
-      setStatus(`Fehler beim Schreiben: ${message}`);
-    }
-  };
+      const userSnapshot = await getDoc(doc(db, 'users', user.uid));
+      const currentFamilyId = userSnapshot.data()?.familyId as string | null | undefined;
+      setFamilyId(currentFamilyId ?? null);
 
-  const handleRead = async () => {
-    setStatus('Lese Firestore-Testdaten ...');
-    try {
-      const snapshot = await getDocs(collection(db, 'healthChecks'));
-      const count = snapshot.size;
-      setAnzahl(count);
+      if (!currentFamilyId) {
+        setChildrenCount(0);
+        setStatus('Keiner Familie zugeordnet.');
+        return;
+      }
 
-      const firstDocQuery = query(collection(db, 'healthChecks'), orderBy('createdAt', 'desc'), limit(1));
-      const firstDocSnapshot = await getDocs(firstDocQuery);
-      const first = firstDocSnapshot.docs[0]?.data() as HealthCheck | undefined;
-      setErstesDokument(first ?? null);
-      setStatus('Erfolg: Daten gelesen.');
+      const childrenSnapshot = await getDocs(
+        query(collection(db, 'children'), where('familyId', '==', currentFamilyId)),
+      );
+      setChildrenCount(childrenSnapshot.size);
+      setStatus('Familienbezogene Daten geladen.');
     } catch (error) {
-      const message = getGermanFirebaseError(error);
-      setStatus(`Fehler beim Lesen: ${message}`);
+      setStatus(`Fehler beim Laden: ${getGermanFirebaseError(error)}`);
     }
   };
 
@@ -71,8 +43,7 @@ export default function StartseiteScreen() {
     try {
       await logout();
     } catch (error) {
-      const message = getGermanFirebaseError(error);
-      setStatus(`Fehler beim Abmelden: ${message}`);
+      setStatus(`Fehler beim Abmelden: ${getGermanFirebaseError(error)}`);
     }
   };
 
@@ -82,19 +53,21 @@ export default function StartseiteScreen() {
       <Text style={styles.subtitle}>Hallo {user.email ?? 'Nutzer'}!</Text>
 
       <View style={styles.testBox}>
-        <Text style={styles.testTitle}>Firestore Testbereich</Text>
+        <Text style={styles.testTitle}>Familienbereich</Text>
 
-        <Pressable style={styles.primaryButton} onPress={handleWrite}>
-          <Text style={styles.buttonText}>Firestore Test schreiben</Text>
-        </Pressable>
+        <Pressable style={styles.primaryLink} onPress={() => router.push('/familie-erstellen' as never)}><Text style={styles.buttonText}>Familie erstellen</Text></Pressable>
 
-        <Pressable style={styles.secondaryButton} onPress={handleRead}>
-          <Text style={styles.buttonText}>Firestore Test lesen</Text>
+        <Pressable style={styles.secondaryLink} onPress={() => router.push('/familie-beitreten' as never)}><Text style={styles.buttonText}>Familie beitreten</Text></Pressable>
+
+        <Pressable style={styles.tertiaryLink} onPress={() => router.push('/kind-anlegen' as never)}><Text style={styles.buttonText}>Kind anlegen</Text></Pressable>
+
+        <Pressable style={styles.loadButton} onPress={loadFamilyData}>
+          <Text style={styles.buttonText}>Familiendaten laden</Text>
         </Pressable>
 
         <Text style={styles.status}>{status}</Text>
-        <Text style={styles.dataText}>Anzahl Dokumente: {anzahl ?? '-'}</Text>
-        <Text style={styles.dataText}>Erster Datensatz: {formatHealthCheck(erstesDokument)}</Text>
+        <Text style={styles.dataText}>Aktuelle Familien-ID: {familyId ?? '-'}</Text>
+        <Text style={styles.dataText}>Anzahl Kinder in der Familie: {childrenCount ?? '-'}</Text>
       </View>
 
       <Pressable style={styles.logoutButton} onPress={handleLogout}>
@@ -132,13 +105,32 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '700',
   },
-  primaryButton: {
-    backgroundColor: '#0ea5e9',
+  primaryLink: {
+    backgroundColor: '#2563eb',
+    color: '#fff',
+    textAlign: 'center',
     borderRadius: 8,
     paddingVertical: 12,
+    fontWeight: '700',
   },
-  secondaryButton: {
+  secondaryLink: {
+    backgroundColor: '#16a34a',
+    color: '#fff',
+    textAlign: 'center',
+    borderRadius: 8,
+    paddingVertical: 12,
+    fontWeight: '700',
+  },
+  tertiaryLink: {
     backgroundColor: '#7c3aed',
+    color: '#fff',
+    textAlign: 'center',
+    borderRadius: 8,
+    paddingVertical: 12,
+    fontWeight: '700',
+  },
+  loadButton: {
+    backgroundColor: '#0ea5e9',
     borderRadius: 8,
     paddingVertical: 12,
   },

@@ -23,6 +23,9 @@ function RootNavigation() {
       <Stack.Screen name="anmelden" options={{ title: 'Anmelden' }} />
       <Stack.Screen name="registrieren" options={{ title: 'Registrieren' }} />
       <Stack.Screen name="startseite" options={{ title: 'Startseite' }} />
+      <Stack.Screen name="familie-erstellen" options={{ title: 'Familie erstellen' }} />
+      <Stack.Screen name="familie-beitreten" options={{ title: 'Familie beitreten' }} />
+      <Stack.Screen name="kind-anlegen" options={{ title: 'Kind anlegen' }} />
     </Stack>
   );
 }
