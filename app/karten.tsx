@@ -20,7 +20,7 @@ import {
 type TaskCardListItem = Awaited<ReturnType<typeof loadTaskCardsByFamilyId>>[number];
 
 type ActionType = 'take_me' | 'take_partner' | 'discard' | 'reopen';
-type OwnerFilterType = 'all' | 'me' | 'partner';
+type OwnerFilterType = 'all' | 'user' | 'partner';
 
 export default function KartenScreen() {
   const { user } = useAuth();
@@ -33,6 +33,7 @@ export default function KartenScreen() {
   const [isSaving, setIsSaving] = useState(false);
   const [ownerFilter, setOwnerFilter] = useState<OwnerFilterType>('all');
   const [collapsedDiscarded, setCollapsedDiscarded] = useState(true);
+  const [showNewCardForm, setShowNewCardForm] = useState(false);
   const [editingCardId, setEditingCardId] = useState<string | null>(null);
   const [draftCard, setDraftCard] = useState({
     title: '',
@@ -100,10 +101,10 @@ export default function KartenScreen() {
     const map = new Map<string, TaskCardListItem[]>();
     cards
       .filter((card) => {
-        if (card.relevanceStatus !== 'active' || card.ownershipStatus !== 'unassigned') {
+        if (card.relevanceStatus === 'discarded') {
           return false;
         }
-        if (ownerFilter === 'me') {
+        if (ownerFilter === 'user') {
           return card.suggestedOwner === user?.uid;
         }
         if (ownerFilter === 'partner') {
@@ -339,6 +340,9 @@ export default function KartenScreen() {
 
       <Text style={styles.statusText}>{status}</Text>
       {isLoading && <Text style={styles.infoText}>Lade ...</Text>}
+      <Pressable style={[styles.actionButton, styles.meButton]} onPress={() => setShowNewCardForm((prev) => !prev)}>
+        <Text style={styles.actionText}>{showNewCardForm ? 'Neue Karte schließen' : 'Neue Karte anlegen'}</Text>
+      </Pressable>
       <View style={styles.filterRow}>
         <Pressable
           style={[styles.filterButton, ownerFilter === 'all' && styles.filterButtonActive]}
@@ -347,11 +351,11 @@ export default function KartenScreen() {
           <Text style={[styles.filterButtonText, ownerFilter === 'all' && styles.filterButtonTextActive]}>Alle</Text>
         </Pressable>
         <Pressable
-          style={[styles.filterButton, ownerFilter === 'me' && styles.filterButtonActive]}
-          onPress={() => setOwnerFilter('me')}
+          style={[styles.filterButton, ownerFilter === 'user' && styles.filterButtonActive]}
+          onPress={() => setOwnerFilter('user')}
         >
-          <Text style={[styles.filterButtonText, ownerFilter === 'me' && styles.filterButtonTextActive]}>
-            Mich ({ownerNames[user.uid] ?? 'Ich'})
+          <Text style={[styles.filterButtonText, ownerFilter === 'user' && styles.filterButtonTextActive]}>
+            {ownerNames[user.uid] ?? user.uid}
           </Text>
         </Pressable>
         <Pressable
@@ -359,7 +363,7 @@ export default function KartenScreen() {
           onPress={() => setOwnerFilter('partner')}
         >
           <Text style={[styles.filterButtonText, ownerFilter === 'partner' && styles.filterButtonTextActive]}>
-            Partner ({(partnerId && ownerNames[partnerId]) ?? 'Partner'})
+            {(partnerId && ownerNames[partnerId]) ?? 'Partner'}
           </Text>
         </Pressable>
       </View>
@@ -372,18 +376,21 @@ export default function KartenScreen() {
             <View key={card.taskCardId} style={styles.card}>
               {editingCardId === card.taskCardId ? (
                 <>
+                  <Text style={styles.fieldLabel}>Titel</Text>
                   <TextInput
                     style={styles.input}
                     placeholder="Titel"
                     value={draftCard.title}
                     onChangeText={(value) => setDraftCard((prev) => ({ ...prev, title: value }))}
                   />
+                  <Text style={styles.fieldLabel}>Kategorie</Text>
                   <TextInput
                     style={styles.input}
                     placeholder="Kategorie"
                     value={draftCard.category}
                     onChangeText={(value) => setDraftCard((prev) => ({ ...prev, category: value }))}
                   />
+                  <Text style={styles.fieldLabel}>Beschreibung</Text>
                   <TextInput
                     style={[styles.input, styles.multilineInput]}
                     multiline
@@ -391,6 +398,7 @@ export default function KartenScreen() {
                     value={draftCard.description}
                     onChangeText={(value) => setDraftCard((prev) => ({ ...prev, description: value }))}
                   />
+                  <Text style={styles.fieldLabel}>Daran denken</Text>
                   <TextInput
                     style={[styles.input, styles.multilineInput]}
                     multiline
@@ -398,6 +406,7 @@ export default function KartenScreen() {
                     value={draftCard.thinkingTasksText}
                     onChangeText={(value) => setDraftCard((prev) => ({ ...prev, thinkingTasksText: value }))}
                   />
+                  <Text style={styles.fieldLabel}>Machen</Text>
                   <TextInput
                     style={[styles.input, styles.multilineInput]}
                     multiline
@@ -462,31 +471,36 @@ export default function KartenScreen() {
         </View>
       ))}
 
-      <View style={styles.categorySection}>
-        <Text style={styles.categoryTitle}>Neue Aufgabe hinzufügen</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Titel der Aufgabe"
-          value={newCard.title}
-          onChangeText={(value) => setNewCard((prev) => ({ ...prev, title: value }))}
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Kategorie"
-          value={newCard.category}
-          onChangeText={(value) => setNewCard((prev) => ({ ...prev, category: value }))}
-        />
-        <TextInput
-          style={[styles.input, styles.multilineInput]}
-          multiline
-          placeholder="Beschreibung"
-          value={newCard.description}
-          onChangeText={(value) => setNewCard((prev) => ({ ...prev, description: value }))}
-        />
-        <Pressable style={[styles.actionButton, styles.meButton]} onPress={addNewCard}>
-          <Text style={styles.actionText}>Neu hinzufügen</Text>
-        </Pressable>
-      </View>
+      {showNewCardForm && (
+        <View style={styles.categorySection}>
+          <Text style={styles.categoryTitle}>Neue Aufgabe hinzufügen</Text>
+          <Text style={styles.fieldLabel}>Titel</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Titel der Aufgabe"
+            value={newCard.title}
+            onChangeText={(value) => setNewCard((prev) => ({ ...prev, title: value }))}
+          />
+          <Text style={styles.fieldLabel}>Kategorie</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Kategorie"
+            value={newCard.category}
+            onChangeText={(value) => setNewCard((prev) => ({ ...prev, category: value }))}
+          />
+          <Text style={styles.fieldLabel}>Beschreibung</Text>
+          <TextInput
+            style={[styles.input, styles.multilineInput]}
+            multiline
+            placeholder="Beschreibung"
+            value={newCard.description}
+            onChangeText={(value) => setNewCard((prev) => ({ ...prev, description: value }))}
+          />
+          <Pressable style={[styles.actionButton, styles.meButton]} onPress={addNewCard}>
+            <Text style={styles.actionText}>Neu hinzufügen</Text>
+          </Pressable>
+        </View>
+      )}
 
       <View style={styles.categorySection}>
         <Pressable style={styles.collapseHeader} onPress={() => setCollapsedDiscarded((prev) => !prev)}>
@@ -665,6 +679,11 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     backgroundColor: '#ffffff',
     color: '#0f172a',
+  },
+  fieldLabel: {
+    color: '#0f172a',
+    fontWeight: '700',
+    marginTop: 2,
   },
   multilineInput: {
     minHeight: 70,
