@@ -11,6 +11,7 @@ import {
   Text,
   useWindowDimensions,
   View,
+  type LayoutChangeEvent,
 } from 'react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { db } from '@/lib/firebase';
@@ -23,8 +24,8 @@ import {
 } from '@/services/taskCardService';
 
 type TaskCardListItem = Awaited<ReturnType<typeof loadTaskCardsByFamilyId>>[number];
-
-const SWIPE_THRESHOLD = 60;
+type DropTarget = 'partner' | 'discussion' | 'me';
+type DropZone = { x: number; y: number; width: number; height: number };
 
 export default function KartenScreen() {
   const { user } = useAuth();
@@ -35,8 +36,22 @@ export default function KartenScreen() {
   const [partnerId, setPartnerId] = useState<string | null>(null);
   const [activeCardIndex, setActiveCardIndex] = useState(0);
   const [isDeciding, setIsDeciding] = useState(false);
+  const [dropZones, setDropZones] = useState<Partial<Record<DropTarget, DropZone>>>({});
   const pan = useRef(new Animated.ValueXY()).current;
+  const dropZoneRefs = useRef<Partial<Record<DropTarget, View | null>>>({});
   const { width } = useWindowDimensions();
+
+  const setDropZone = (target: DropTarget, event: LayoutChangeEvent) => {
+    event.persist();
+    requestAnimationFrame(() => {
+      dropZoneRefs.current[target]?.measureInWindow((x, y, zoneWidth, zoneHeight) => {
+        setDropZones((current) => ({
+          ...current,
+          [target]: { x, y, width: zoneWidth, height: zoneHeight },
+        }));
+      });
+    });
+  };
 
   const loadCards = useCallback(async () => {
     if (!user) {
@@ -91,7 +106,7 @@ export default function KartenScreen() {
   }, [pan]);
 
   const handleCardDecision = useCallback(
-    async (direction: 'left' | 'right' | 'up') => {
+    async (target: DropTarget) => {
       if (!user) {
         return;
       }
@@ -103,18 +118,17 @@ export default function KartenScreen() {
 
       setIsDeciding(true);
       try {
-        if (direction === 'right') {
+        if (target === 'me') {
           await updateTaskCardDecision(activeCard.taskCardId, {
             suggestedOwner: user.uid,
             decisionStatus: 'owner_me',
           });
           setStatus('Du übernimmst die Aufgabe.');
-        } else if (direction === 'left') {
+        } else if (target === 'partner') {
           if (!partnerId) {
             setStatus('Kein Partnerprofil gefunden. Bitte Familie prüfen.');
             return;
           }
-
           await updateTaskCardDecision(activeCard.taskCardId, {
             suggestedOwner: partnerId,
             decisionStatus: 'owner_partner',
@@ -127,27 +141,9 @@ export default function KartenScreen() {
           setStatus('Zur Diskussion markiert.');
         }
 
-        setCards((currentCards) =>
-          currentCards.map((card) => {
-            if (card.taskCardId !== activeCard.taskCardId) {
-              return card;
-            }
-
-            if (direction === 'right') {
-              return { ...card, suggestedOwner: user.uid };
-            }
-
-            if (direction === 'left' && partnerId) {
-              return { ...card, suggestedOwner: partnerId };
-            }
-
-            return card;
-          }),
-        );
-
         animateToNextCard();
       } catch (error) {
-        setStatus(`Fehler beim Swipen: ${getGermanFirebaseError(error)}`);
+        setStatus(`Fehler beim Zuordnen: ${getGermanFirebaseError(error)}`);
         Animated.spring(pan, {
           toValue: { x: 0, y: 0 },
           useNativeDriver: false,
@@ -159,55 +155,53 @@ export default function KartenScreen() {
     [activeCardIndex, animateToNextCard, cards, isDeciding, pan, partnerId, user],
   );
 
+  const findDropTarget = useCallback(
+    (x: number, y: number): DropTarget | null => {
+      const zones = dropZones as Record<string, DropZone>;
+      const targets: DropTarget[] = ['partner', 'discussion', 'me'];
+
+      for (const target of targets) {
+        const zone = zones[target];
+        if (!zone) {
+          continue;
+        }
+
+        const withinX = x >= zone.x && x <= zone.x + zone.width;
+        const withinY = y >= zone.y && y <= zone.y + zone.height;
+
+        if (withinX && withinY) {
+          return target;
+        }
+      }
+
+      return null;
+    },
+    [dropZones],
+  );
+
   const panResponder = useMemo(
     () =>
       PanResponder.create({
         onStartShouldSetPanResponder: () => true,
         onMoveShouldSetPanResponder: (_, gestureState) =>
-          Math.abs(gestureState.dx) > 8 || Math.abs(gestureState.dy) > 8,
+          Math.abs(gestureState.dx) > 3 || Math.abs(gestureState.dy) > 3,
         onPanResponderMove: Animated.event([null, { dx: pan.x, dy: pan.y }], { useNativeDriver: false }),
-        onPanResponderRelease: (_, gestureState) => {
-          if (gestureState.dx > SWIPE_THRESHOLD) {
-            Animated.timing(pan, {
-              toValue: { x: width, y: gestureState.dy },
-              duration: 180,
+        onPanResponderRelease: (event) => {
+          const target = findDropTarget(event.nativeEvent.pageX, event.nativeEvent.pageY);
+
+          if (!target) {
+            Animated.spring(pan, {
+              toValue: { x: 0, y: 0 },
+              friction: 6,
               useNativeDriver: false,
-            }).start(() => {
-              handleCardDecision('right');
-            });
+            }).start();
             return;
           }
 
-          if (gestureState.dx < -SWIPE_THRESHOLD) {
-            Animated.timing(pan, {
-              toValue: { x: -width, y: gestureState.dy },
-              duration: 180,
-              useNativeDriver: false,
-            }).start(() => {
-              handleCardDecision('left');
-            });
-            return;
-          }
-
-          if (gestureState.dy < -SWIPE_THRESHOLD) {
-            Animated.timing(pan, {
-              toValue: { x: gestureState.dx, y: -width },
-              duration: 180,
-              useNativeDriver: false,
-            }).start(() => {
-              handleCardDecision('up');
-            });
-            return;
-          }
-
-          Animated.spring(pan, {
-            toValue: { x: 0, y: 0 },
-            friction: 6,
-            useNativeDriver: false,
-          }).start();
+          handleCardDecision(target);
         },
       }),
-    [handleCardDecision, pan, width],
+    [findDropTarget, handleCardDecision, pan],
   );
 
   const handleGenerateCards = async () => {
@@ -242,7 +236,7 @@ export default function KartenScreen() {
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>Karten</Text>
-      <Text style={styles.subtitle}>Swipe wie bei Tinder: rechts = ich, links = Partner, oben = Diskussion. Kurzes Ziehen reicht.</Text>
+      <Text style={styles.subtitle}>Karte ziehen und in eine Box loslassen: Partner, Diskussion oder Ich.</Text>
 
       <Pressable style={styles.generateButton} onPress={handleGenerateCards}>
         <Text style={styles.buttonText}>Karten aus Ergebnissen erzeugen</Text>
@@ -254,22 +248,6 @@ export default function KartenScreen() {
 
       <Text style={styles.statusText}>{status}</Text>
       {isLoading && <Text style={styles.infoText}>Lade ...</Text>}
-
-
-
-      {activeCard && (
-        <View style={styles.quickActions}>
-          <Pressable style={[styles.quickButton, styles.leftButton]} onPress={() => handleCardDecision('left')} disabled={isDeciding}>
-            <Text style={styles.quickButtonText}>⬅️ Partner</Text>
-          </Pressable>
-          <Pressable style={[styles.quickButton, styles.upButton]} onPress={() => handleCardDecision('up')} disabled={isDeciding}>
-            <Text style={styles.quickButtonText}>⬆️ Diskussion</Text>
-          </Pressable>
-          <Pressable style={[styles.quickButton, styles.rightButton]} onPress={() => handleCardDecision('right')} disabled={isDeciding}>
-            <Text style={styles.quickButtonText}>➡️ Ich</Text>
-          </Pressable>
-        </View>
-      )}
 
       {activeCard ? (
         <Animated.View
@@ -306,6 +284,18 @@ export default function KartenScreen() {
           <Text style={styles.cardDescription}>Erzeuge neue Karten oder lade Karten erneut aus Firestore.</Text>
         </View>
       )}
+
+      <View style={styles.dropZoneRow}>
+        <View ref={(ref) => { dropZoneRefs.current.partner = ref; }} style={[styles.dropZone, styles.dropPartner]} onLayout={(event) => setDropZone('partner', event)}>
+          <Text style={styles.dropZoneText}>Partner</Text>
+        </View>
+        <View ref={(ref) => { dropZoneRefs.current.discussion = ref; }} style={[styles.dropZone, styles.dropDiscussion]} onLayout={(event) => setDropZone('discussion', event)}>
+          <Text style={styles.dropZoneText}>Diskussion</Text>
+        </View>
+        <View ref={(ref) => { dropZoneRefs.current.me = ref; }} style={[styles.dropZone, styles.dropMe]} onLayout={(event) => setDropZone('me', event)}>
+          <Text style={styles.dropZoneText}>Ich</Text>
+        </View>
+      </View>
     </ScrollView>
   );
 }
@@ -353,32 +343,6 @@ const styles = StyleSheet.create({
     color: '#475569',
     textAlign: 'center',
   },
-
-  quickActions: {
-    width: '100%',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 8,
-  },
-  quickButton: {
-    flex: 1,
-    borderRadius: 8,
-    paddingVertical: 10,
-  },
-  leftButton: {
-    backgroundColor: '#ea580c',
-  },
-  upButton: {
-    backgroundColor: '#7c3aed',
-  },
-  rightButton: {
-    backgroundColor: '#059669',
-  },
-  quickButtonText: {
-    color: '#fff',
-    textAlign: 'center',
-    fontWeight: '700',
-  },
   card: {
     backgroundColor: '#ffffff',
     borderRadius: 10,
@@ -410,5 +374,34 @@ const styles = StyleSheet.create({
   },
   hiddenItem: {
     color: '#475569',
+  },
+  dropZoneRow: {
+    width: '100%',
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 8,
+  },
+  dropZone: {
+    flex: 1,
+    borderRadius: 10,
+    borderWidth: 2,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  dropPartner: {
+    borderColor: '#ea580c',
+    backgroundColor: '#ffedd5',
+  },
+  dropDiscussion: {
+    borderColor: '#7c3aed',
+    backgroundColor: '#f3e8ff',
+  },
+  dropMe: {
+    borderColor: '#059669',
+    backgroundColor: '#d1fae5',
+  },
+  dropZoneText: {
+    fontWeight: '700',
+    color: '#0f172a',
   },
 });
