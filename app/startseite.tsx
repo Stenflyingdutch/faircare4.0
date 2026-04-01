@@ -100,6 +100,10 @@ export default function StartseiteScreen() {
           <Text style={styles.buttonText}>Ergebnisse ansehen</Text>
         </Pressable>
 
+        <Pressable style={styles.cardsLink} onPress={() => router.push('/karten' as never)}>
+          <Text style={styles.buttonText}>Karten ansehen</Text>
+        </Pressable>
+
         <Pressable style={styles.loadButton} onPress={loadFamilyData}>
           <Text style={styles.buttonText}>Familiendaten laden</Text>
         </Pressable>
@@ -179,6 +183,11 @@ const styles = StyleSheet.create({
   },
   resultsLink: {
     backgroundColor: '#0f766e',
+    borderRadius: 8,
+    paddingVertical: 12,
+  },
+  cardsLink: {
+    backgroundColor: '#4f46e5',
     borderRadius: 8,
     paddingVertical: 12,
   },
