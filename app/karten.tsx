@@ -35,6 +35,8 @@ export default function KartenScreen() {
   const [collapsedDiscarded, setCollapsedDiscarded] = useState(true);
   const [showNewCardForm, setShowNewCardForm] = useState(false);
   const [editingCardId, setEditingCardId] = useState<string | null>(null);
+  const [expandedCardIds, setExpandedCardIds] = useState<string[]>([]);
+  const [openCategoryMenuFor, setOpenCategoryMenuFor] = useState<string | null>(null);
   const [draftCard, setDraftCard] = useState({
     title: '',
     description: '',
@@ -47,6 +49,13 @@ export default function KartenScreen() {
     description: '',
     category: '',
   });
+
+  const knownCategories = useMemo(() => {
+    const categories = new Set(
+      cards.map((card) => card.category?.trim()).filter((category): category is string => Boolean(category)),
+    );
+    return [...categories].sort((a, b) => a.localeCompare(b, 'de-DE'));
+  }, [cards]);
 
   const loadCards = useCallback(async () => {
     if (!user) {
@@ -200,6 +209,12 @@ export default function KartenScreen() {
       thinkingTasksText: (card.thinkingTasks ?? []).join('\n'),
       doingTasksText: (card.doingTasks ?? []).join('\n'),
     });
+  }, []);
+
+  const toggleCardExpanded = useCallback((taskCardId: string) => {
+    setExpandedCardIds((prev) =>
+      prev.includes(taskCardId) ? prev.filter((value) => value !== taskCardId) : [...prev, taskCardId],
+    );
   }, []);
 
   const cancelEditingCard = useCallback(() => {
@@ -374,22 +389,48 @@ export default function KartenScreen() {
 
           {categoryCards.map((card) => (
             <View key={card.taskCardId} style={styles.card}>
-              {editingCardId === card.taskCardId ? (
-                <>
-                  <Text style={styles.fieldLabel}>Titel</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Titel"
-                    value={draftCard.title}
-                    onChangeText={(value) => setDraftCard((prev) => ({ ...prev, title: value }))}
-                  />
-                  <Text style={styles.fieldLabel}>Kategorie</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Kategorie"
-                    value={draftCard.category}
-                    onChangeText={(value) => setDraftCard((prev) => ({ ...prev, category: value }))}
-                  />
+              <Pressable style={styles.cardHeader} onPress={() => toggleCardExpanded(card.taskCardId)}>
+                <View>
+                  <Text style={styles.cardTitle}>{card.title}</Text>
+                  <Text style={styles.metaText}>Kategorie: {card.category || 'Unkategorisiert'}</Text>
+                </View>
+                <Text style={styles.metaText}>{expandedCardIds.includes(card.taskCardId) ? 'Einklappen' : 'Ausklappen'}</Text>
+              </Pressable>
+              {expandedCardIds.includes(card.taskCardId) &&
+                (editingCardId === card.taskCardId ? (
+                  <>
+                    <Text style={styles.fieldLabel}>Titel</Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Titel"
+                      value={draftCard.title}
+                      onChangeText={(value) => setDraftCard((prev) => ({ ...prev, title: value }))}
+                    />
+                    <Text style={styles.fieldLabel}>Kategorie</Text>
+                    <Pressable
+                      style={styles.input}
+                      onPress={() =>
+                        setOpenCategoryMenuFor((prev) => (prev === `edit-${card.taskCardId}` ? null : `edit-${card.taskCardId}`))
+                      }
+                    >
+                      <Text>{draftCard.category || 'Kategorie auswählen'}</Text>
+                    </Pressable>
+                    {openCategoryMenuFor === `edit-${card.taskCardId}` && (
+                      <View style={styles.dropdownMenu}>
+                        {knownCategories.map((categoryOption) => (
+                          <Pressable
+                            key={`edit-${card.taskCardId}-${categoryOption}`}
+                            style={styles.dropdownItem}
+                            onPress={() => {
+                              setDraftCard((prev) => ({ ...prev, category: categoryOption }));
+                              setOpenCategoryMenuFor(null);
+                            }}
+                          >
+                            <Text>{categoryOption}</Text>
+                          </Pressable>
+                        ))}
+                      </View>
+                    )}
                   <Text style={styles.fieldLabel}>Beschreibung</Text>
                   <TextInput
                     style={[styles.input, styles.multilineInput]}
@@ -423,10 +464,9 @@ export default function KartenScreen() {
                     </Pressable>
                   </View>
                 </>
-              ) : (
-                <>
-                  <Text style={styles.cardTitle}>{card.title}</Text>
-                  <Text style={styles.cardDescription}>{card.description}</Text>
+                ) : (
+                  <>
+                    <Text style={styles.cardDescription}>{card.description}</Text>
 
                   <Text style={styles.listTitle}>Daran denken</Text>
                   {card.thinkingTasks?.map((task) => (
@@ -450,10 +490,10 @@ export default function KartenScreen() {
 
                   <View style={styles.actionsRow}>
                     <Pressable style={[styles.actionButton, styles.meButton]} onPress={() => handleAction(card, 'take_me')}>
-                      <Text style={styles.actionText}>Ich übernehme</Text>
+                      <Text style={styles.actionText}>Nata</Text>
                     </Pressable>
                     <Pressable style={[styles.actionButton, styles.partnerButton]} onPress={() => handleAction(card, 'take_partner')}>
-                      <Text style={styles.actionText}>Partner übernimmt</Text>
+                      <Text style={styles.actionText}>Sten</Text>
                     </Pressable>
                   </View>
                   <View style={styles.actionsRow}>
@@ -465,7 +505,7 @@ export default function KartenScreen() {
                     </Pressable>
                   </View>
                 </>
-              )}
+                ))}
             </View>
           ))}
         </View>
@@ -482,12 +522,28 @@ export default function KartenScreen() {
             onChangeText={(value) => setNewCard((prev) => ({ ...prev, title: value }))}
           />
           <Text style={styles.fieldLabel}>Kategorie</Text>
-          <TextInput
+          <Pressable
             style={styles.input}
-            placeholder="Kategorie"
-            value={newCard.category}
-            onChangeText={(value) => setNewCard((prev) => ({ ...prev, category: value }))}
-          />
+            onPress={() => setOpenCategoryMenuFor((prev) => (prev === 'new-card' ? null : 'new-card'))}
+          >
+            <Text>{newCard.category || 'Kategorie auswählen'}</Text>
+          </Pressable>
+          {openCategoryMenuFor === 'new-card' && (
+            <View style={styles.dropdownMenu}>
+              {knownCategories.map((categoryOption) => (
+                <Pressable
+                  key={`new-${categoryOption}`}
+                  style={styles.dropdownItem}
+                  onPress={() => {
+                    setNewCard((prev) => ({ ...prev, category: categoryOption }));
+                    setOpenCategoryMenuFor(null);
+                  }}
+                >
+                  <Text>{categoryOption}</Text>
+                </Pressable>
+              ))}
+            </View>
+          )}
           <Text style={styles.fieldLabel}>Beschreibung</Text>
           <TextInput
             style={[styles.input, styles.multilineInput]}
@@ -617,6 +673,12 @@ const styles = StyleSheet.create({
     padding: 12,
     gap: 4,
   },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
   checkinCard: {
     backgroundColor: '#ffffff',
     borderRadius: 8,
@@ -684,6 +746,19 @@ const styles = StyleSheet.create({
     color: '#0f172a',
     fontWeight: '700',
     marginTop: 2,
+  },
+  dropdownMenu: {
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    borderRadius: 8,
+    backgroundColor: '#ffffff',
+    overflow: 'hidden',
+  },
+  dropdownItem: {
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
   },
   multilineInput: {
     minHeight: 70,
