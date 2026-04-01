@@ -1,0 +1,17 @@
+{
+  "expo": {
+    "name": "FairCare 4.0",
+    "slug": "faircare4-0",
+    "scheme": "faircare4-0",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "jsEngine": "hermes",
+    "plugins": [
+      "expo-router"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
