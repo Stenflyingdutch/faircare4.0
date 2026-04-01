@@ -17,7 +17,7 @@ import {
 
 type TaskCardListItem = Awaited<ReturnType<typeof loadTaskCardsByFamilyId>>[number];
 
-type ActionType = 'take_me' | 'take_partner' | 'discard' | 'later' | 'reopen';
+type ActionType = 'take_me' | 'take_partner' | 'discard' | 'reopen';
 
 export default function KartenScreen() {
   const { user } = useAuth();
@@ -81,7 +81,7 @@ export default function KartenScreen() {
   const groupedCards = useMemo(() => {
     const map = new Map<string, TaskCardListItem[]>();
     cards
-      .filter((card) => card.relevanceStatus !== 'discarded')
+      .filter((card) => card.relevanceStatus === 'active' && card.ownershipStatus === 'unassigned')
       .forEach((card) => {
         const category = card.category ?? 'Unkategorisiert';
         const list = map.get(category) ?? [];
@@ -195,13 +195,6 @@ export default function KartenScreen() {
             relevanceStatus: 'discarded',
           });
           setStatus('Karte als nicht relevant markiert.');
-        } else if (actionType === 'later') {
-          await updateTaskCardOwnership(card.taskCardId, {
-            ownershipStatus: 'unassigned',
-            assignedTo: null,
-            relevanceStatus: 'active',
-          });
-          setStatus('Karte für spätere Besprechung offen gelassen.');
         } else {
           await restoreTaskCard(card.taskCardId);
           setStatus('Karte für Neuverhandlung wieder aktiviert.');
@@ -283,9 +276,6 @@ export default function KartenScreen() {
                 <Pressable style={[styles.actionButton, styles.discardButton]} onPress={() => handleAction(card, 'discard')}>
                   <Text style={styles.actionText}>Nicht relevant</Text>
                 </Pressable>
-                <Pressable style={[styles.actionButton, styles.laterButton]} onPress={() => handleAction(card, 'later')}>
-                  <Text style={styles.actionText}>Später besprechen</Text>
-                </Pressable>
               </View>
             </View>
           ))}
@@ -303,7 +293,7 @@ export default function KartenScreen() {
               <Text style={styles.metaText}>
                 Aktuell zuständig: {card.assignedTo ? ownerNames[card.assignedTo] ?? card.assignedTo : 'Offen'}
               </Text>
-              <Pressable style={[styles.actionButton, styles.laterButton]} onPress={() => handleAction(card, 'reopen')}>
+              <Pressable style={[styles.actionButton, styles.partnerButton]} onPress={() => handleAction(card, 'reopen')}>
                 <Text style={styles.actionText}>Im Check-in neu verhandeln</Text>
               </Pressable>
             </View>
@@ -451,9 +441,6 @@ const styles = StyleSheet.create({
   },
   discardButton: {
     backgroundColor: '#dc2626',
-  },
-  laterButton: {
-    backgroundColor: '#f59e0b',
   },
   actionText: {
     color: '#ffffff',
