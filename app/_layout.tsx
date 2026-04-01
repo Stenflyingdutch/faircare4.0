@@ -28,6 +28,7 @@ function RootNavigation() {
       <Stack.Screen name="kind-anlegen" options={{ title: 'Kind anlegen' }} />
       <Stack.Screen name="quiz" options={{ title: 'Fairness-Quiz' }} />
       <Stack.Screen name="ergebnisse" options={{ title: 'Ergebnisse' }} />
+      <Stack.Screen name="karten" options={{ title: 'Karten' }} />
     </Stack>
   );
 }

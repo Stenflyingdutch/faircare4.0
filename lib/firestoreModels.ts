@@ -48,7 +48,11 @@ export interface TaskCard {
   taskCardId: string;
   familyId: string;
   title: string;
+  category: string;
   description: string;
+  hiddenResponsibilities: string[];
+  frequency: 'daily' | 'weekly' | 'ad-hoc';
+  suggestedOwner: string;
   createdAt: FirestoreDate;
 }
 

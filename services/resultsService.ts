@@ -37,6 +37,7 @@ export type ResultDocument = {
   createdAt: Timestamp;
   userIds: string[];
   scoresPerUser: Record<string, UserScores>;
+  categoryScoresPerUser: Record<QuizCategory, Record<string, number>>;
   mismatchQuestions: MismatchQuestion[];
   topConflictCategories: { category: QuizCategory; score: number }[];
 };
@@ -121,6 +122,9 @@ async function calculateResultsForFamily(familyId: string, parentIds: [string, s
   const mentalPoints: Record<string, number> = { [firstParentId]: 0, [secondParentId]: 0 };
   const mismatchQuestions: MismatchQuestion[] = [];
   const categoryScores = new Map<QuizCategory, number[]>();
+  const categoryTaskPoints: Record<QuizCategory, Record<string, number>> = {} as Record<QuizCategory, Record<string, number>>;
+  const categoryMentalPoints: Record<QuizCategory, Record<string, number>> = {} as Record<QuizCategory, Record<string, number>>;
+  const categoryQuestionCounts: Record<QuizCategory, number> = {} as Record<QuizCategory, number>;
 
   for (const question of QUIZ_QUESTIONS) {
     const answersByUser = questionMap.get(question.id);
@@ -145,6 +149,19 @@ async function calculateResultsForFamily(familyId: string, parentIds: [string, s
     taskPoints[secondParentId] += (firstDoesShare[secondParentId] + secondDoesShare[secondParentId]) / 2;
     mentalPoints[firstParentId] += (firstThinkShare[firstParentId] + secondThinkShare[firstParentId]) / 2;
     mentalPoints[secondParentId] += (firstThinkShare[secondParentId] + secondThinkShare[secondParentId]) / 2;
+
+    categoryTaskPoints[question.category] = categoryTaskPoints[question.category] ?? { [firstParentId]: 0, [secondParentId]: 0 };
+    categoryMentalPoints[question.category] = categoryMentalPoints[question.category] ?? { [firstParentId]: 0, [secondParentId]: 0 };
+    categoryQuestionCounts[question.category] = (categoryQuestionCounts[question.category] ?? 0) + 1;
+
+    categoryTaskPoints[question.category][firstParentId] +=
+      (firstDoesShare[firstParentId] + secondDoesShare[firstParentId]) / 2;
+    categoryTaskPoints[question.category][secondParentId] +=
+      (firstDoesShare[secondParentId] + secondDoesShare[secondParentId]) / 2;
+    categoryMentalPoints[question.category][firstParentId] +=
+      (firstThinkShare[firstParentId] + secondThinkShare[firstParentId]) / 2;
+    categoryMentalPoints[question.category][secondParentId] +=
+      (firstThinkShare[secondParentId] + secondThinkShare[secondParentId]) / 2;
 
     const doesMismatch = normalizedDistance(firstDoesShare, secondDoesShare, parentIds);
     const thinksMismatch = normalizedDistance(firstThinkShare, secondThinkShare, parentIds);
@@ -178,6 +195,19 @@ async function calculateResultsForFamily(familyId: string, parentIds: [string, s
     },
   };
 
+  const categoryScoresPerUser = (Object.keys(categoryQuestionCounts) as QuizCategory[]).reduce((acc, category) => {
+    const questionCount = Math.max(categoryQuestionCounts[category] ?? 0, 1);
+    const task = categoryTaskPoints[category] ?? { [firstParentId]: 0, [secondParentId]: 0 };
+    const mental = categoryMentalPoints[category] ?? { [firstParentId]: 0, [secondParentId]: 0 };
+
+    acc[category] = {
+      [firstParentId]: toPercent((task[firstParentId] + mental[firstParentId]) / (questionCount * 2)),
+      [secondParentId]: toPercent((task[secondParentId] + mental[secondParentId]) / (questionCount * 2)),
+    };
+
+    return acc;
+  }, {} as Record<QuizCategory, Record<string, number>>);
+
   const sortedMismatchQuestions = mismatchQuestions.sort((a, b) => b.mismatchScore - a.mismatchScore);
 
   const topConflictCategories = [...categoryScores.entries()]
@@ -195,6 +225,7 @@ async function calculateResultsForFamily(familyId: string, parentIds: [string, s
     familyId,
     userIds: parentIds,
     scoresPerUser,
+    categoryScoresPerUser,
     mismatchQuestions: sortedMismatchQuestions,
     topConflictCategories,
   } satisfies InProgressResult;
