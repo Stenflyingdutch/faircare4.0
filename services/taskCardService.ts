@@ -2,8 +2,6 @@ import {
   collection,
   doc,
   getDocs,
-  limit,
-  orderBy,
   query,
   serverTimestamp,
   setDoc,
@@ -80,6 +78,16 @@ const taskCardTemplates: Record<
   },
 };
 
+
+function getTimestampMillis(value: unknown) {
+  if (!value || typeof value !== 'object' || !('toMillis' in value)) {
+    return 0;
+  }
+
+  const toMillis = (value as { toMillis?: () => number }).toMillis;
+  return typeof toMillis === 'function' ? toMillis() : 0;
+}
+
 function pickSuggestedOwner(result: ResultDocument, category: QuizCategory) {
   const [firstParentId, secondParentId] = result.userIds;
   const byCategory = result.categoryScoresPerUser?.[category];
@@ -105,8 +113,6 @@ export async function generateTaskCardsFromLatestResult(uid: string) {
     query(
       collection(db, collectionNames.results),
       where('familyId', '==', familyId),
-      orderBy('createdAt', 'desc'),
-      limit(1),
     ),
   );
 
@@ -114,7 +120,10 @@ export async function generateTaskCardsFromLatestResult(uid: string) {
     throw new Error('Keine Ergebnisse gefunden. Bitte zuerst die Ergebnisse berechnen.');
   }
 
-  const latestResultDoc = resultSnapshot.docs[0];
+  const latestResultDoc = [...resultSnapshot.docs].sort(
+    (a, b) => getTimestampMillis(b.data().createdAt) - getTimestampMillis(a.data().createdAt),
+  )[0];
+
   const latestResult = latestResultDoc.data() as ResultDocument;
 
   const categories = latestResult.topConflictCategories
@@ -154,12 +163,13 @@ export async function loadTaskCardsByFamilyId(familyId: string) {
     query(
       collection(db, collectionNames.taskCards),
       where('familyId', '==', familyId),
-      orderBy('createdAt', 'desc'),
     ),
   );
 
-  return cardsSnapshot.docs.map((cardDoc) => ({
-    taskCardId: cardDoc.id,
-    ...(cardDoc.data() as Omit<StoredTaskCard, 'createdAt'> & { createdAt?: Timestamp }),
-  }));
+  return cardsSnapshot.docs
+    .map((cardDoc) => ({
+      taskCardId: cardDoc.id,
+      ...(cardDoc.data() as Omit<StoredTaskCard, 'createdAt'> & { createdAt?: Timestamp }),
+    }))
+    .sort((a, b) => getTimestampMillis(b.createdAt) - getTimestampMillis(a.createdAt));
 }
