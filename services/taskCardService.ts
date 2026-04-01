@@ -5,6 +5,7 @@ import {
   query,
   serverTimestamp,
   setDoc,
+  updateDoc,
   where,
   type Timestamp,
 } from 'firebase/firestore';
@@ -172,4 +173,28 @@ export async function loadTaskCardsByFamilyId(familyId: string) {
       ...(cardDoc.data() as Omit<StoredTaskCard, 'createdAt'> & { createdAt?: Timestamp }),
     }))
     .sort((a, b) => getTimestampMillis(b.createdAt) - getTimestampMillis(a.createdAt));
+}
+
+
+export async function updateTaskCardDecision(
+  taskCardId: string,
+  payload: {
+    suggestedOwner?: string;
+    decisionStatus: 'owner_me' | 'owner_partner' | 'discussion';
+  },
+) {
+  const updatePayload: {
+    suggestedOwner?: string;
+    decisionStatus: 'owner_me' | 'owner_partner' | 'discussion';
+    decidedAt: ReturnType<typeof serverTimestamp>;
+  } = {
+    decisionStatus: payload.decisionStatus,
+    decidedAt: serverTimestamp(),
+  };
+
+  if (payload.suggestedOwner) {
+    updatePayload.suggestedOwner = payload.suggestedOwner;
+  }
+
+  await updateDoc(doc(db, collectionNames.taskCards, taskCardId), updatePayload);
 }
