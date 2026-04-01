@@ -18,7 +18,12 @@ function RootNavigation() {
       screenOptions={{
         headerTitleAlign: 'center',
       }}
-    />
+    >
+      <Stack.Screen name="index" options={{ headerShown: false }} />
+      <Stack.Screen name="anmelden" options={{ title: 'Anmelden' }} />
+      <Stack.Screen name="registrieren" options={{ title: 'Registrieren' }} />
+      <Stack.Screen name="startseite" options={{ title: 'Startseite' }} />
+    </Stack>
   );
 }
 

@@ -1,5 +1,5 @@
 import { Redirect } from 'expo-router';
-import { addDoc, collection, getDocs, serverTimestamp } from 'firebase/firestore';
+import { Timestamp, addDoc, collection, getDocs, limit, orderBy, query, serverTimestamp } from 'firebase/firestore';
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useAuth } from '@/contexts/AuthContext';
@@ -9,7 +9,7 @@ import { getGermanFirebaseError } from '@/lib/firebaseError';
 type HealthCheck = {
   message?: string;
   source?: string;
-  createdAt?: unknown;
+  createdAt?: Timestamp | null;
 };
 
 export default function StartseiteScreen() {
@@ -21,6 +21,19 @@ export default function StartseiteScreen() {
   if (!user) {
     return <Redirect href="/anmelden" />;
   }
+
+  const formatHealthCheck = (doc: HealthCheck | null) => {
+    if (!doc) {
+      return '-';
+    }
+
+    const createdAt =
+      doc.createdAt instanceof Timestamp
+        ? doc.createdAt.toDate().toLocaleString('de-DE')
+        : 'noch nicht gesetzt';
+
+    return `Nachricht: ${doc.message ?? '-'} | Quelle: ${doc.source ?? '-'} | Erstellt am: ${createdAt}`;
+  };
 
   const handleWrite = async () => {
     setStatus('Schreibe Firestore-Testdaten ...');
@@ -44,7 +57,9 @@ export default function StartseiteScreen() {
       const count = snapshot.size;
       setAnzahl(count);
 
-      const first = snapshot.docs[0]?.data() as HealthCheck | undefined;
+      const firstDocQuery = query(collection(db, 'healthChecks'), orderBy('createdAt', 'desc'), limit(1));
+      const firstDocSnapshot = await getDocs(firstDocQuery);
+      const first = firstDocSnapshot.docs[0]?.data() as HealthCheck | undefined;
       setErstesDokument(first ?? null);
       setStatus('Erfolg: Daten gelesen.');
     } catch (error) {
@@ -80,9 +95,7 @@ export default function StartseiteScreen() {
 
         <Text style={styles.status}>{status}</Text>
         <Text style={styles.dataText}>Anzahl Dokumente: {anzahl ?? '-'}</Text>
-        <Text style={styles.dataText}>
-          Erster Datensatz: {erstesDokument ? JSON.stringify(erstesDokument) : '-'}
-        </Text>
+        <Text style={styles.dataText}>Erster Datensatz: {formatHealthCheck(erstesDokument)}</Text>
       </View>
 
       <Pressable style={styles.logoutButton} onPress={handleLogout}>
