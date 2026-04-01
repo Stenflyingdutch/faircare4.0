@@ -27,12 +27,14 @@ export interface ChildProfile {
 }
 
 export interface QuizAnswer {
-  answerId: string;
   familyId: string;
   userId: string;
+  category: string;
   questionId: string;
-  answer: string;
-  createdAt: FirestoreDate;
+  doesIt: string;
+  thinksAboutIt: string;
+  feelsResponsible: string;
+  updatedAt: FirestoreDate;
 }
 
 export interface ResultItem {

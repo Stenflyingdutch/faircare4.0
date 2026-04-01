@@ -92,6 +92,10 @@ export default function StartseiteScreen() {
           <Text style={styles.buttonText}>Kind anlegen</Text>
         </Pressable>
 
+        <Pressable style={styles.quizLink} onPress={() => router.push('/quiz' as never)}>
+          <Text style={styles.buttonText}>Fairness-Quiz starten</Text>
+        </Pressable>
+
         <Pressable style={styles.loadButton} onPress={loadFamilyData}>
           <Text style={styles.buttonText}>Familiendaten laden</Text>
         </Pressable>
@@ -161,6 +165,11 @@ const styles = StyleSheet.create({
   },
   loadButton: {
     backgroundColor: '#0ea5e9',
+    borderRadius: 8,
+    paddingVertical: 12,
+  },
+  quizLink: {
+    backgroundColor: '#f59e0b',
     borderRadius: 8,
     paddingVertical: 12,
   },
