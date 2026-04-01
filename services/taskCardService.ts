@@ -25,6 +25,7 @@ export type StoredTaskCard = {
   suggestedOwner: string;
   createdAt: Timestamp;
   sourceResultId?: string;
+  updatedAt?: Timestamp;
   decisionStatus?: 'owner_me' | 'owner_partner' | 'discussion';
   decidedAt?: Timestamp;
 };
@@ -234,4 +235,18 @@ export async function createTaskCard(
     ...payload,
     createdAt: serverTimestamp(),
   } satisfies Omit<StoredTaskCard, 'createdAt'> & { createdAt: ReturnType<typeof serverTimestamp> });
+}
+
+export async function ensureInitialTaskCardsForCurrentFamily(uid: string) {
+  const familyId = await getCurrentUserFamilyId(uid);
+  if (!familyId) {
+    throw new Error('Kein Familienkonto gefunden.');
+  }
+
+  const existingCards = await loadTaskCardsByFamilyId(familyId);
+  if (existingCards.length > 0) {
+    return { createdCount: 0 };
+  }
+
+  return generateTaskCardsFromLatestResult(uid);
 }

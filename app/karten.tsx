@@ -11,6 +11,7 @@ import { collectionNames, getCurrentUserFamilyId } from '@/services/familyServic
 import {
   createTaskCard,
   deleteTaskCard,
+  ensureInitialTaskCardsForCurrentFamily,
   loadTaskCardsByFamilyId,
   updateTaskCard,
 } from '@/services/taskCardService';
@@ -98,6 +99,8 @@ export default function KartenScreen() {
         setStatus('Kein Familienkonto gefunden.');
         return;
       }
+
+      await ensureInitialTaskCardsForCurrentFamily(user.uid);
 
       const familySnapshot = await getDoc(doc(db, collectionNames.families, resolvedFamilyId));
       const memberIds = (familySnapshot.data()?.memberIds as string[] | undefined) ?? [];
