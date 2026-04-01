@@ -81,6 +81,9 @@ const taskCardTemplates: Record<
   },
 };
 
+function isTemplateCategory(category: QuizCategory): category is keyof typeof taskCardTemplates {
+  return category in taskCardTemplates;
+}
 
 function getTimestampMillis(value: unknown) {
   if (!value || typeof value !== 'object' || !('toMillis' in value)) {
@@ -131,9 +134,10 @@ export async function generateTaskCardsFromLatestResult(uid: string) {
 
   const prioritizedCategories = latestResult.topConflictCategories
     .filter((entry) => entry.score > 0)
-    .map((entry) => entry.category);
+    .map((entry) => entry.category)
+    .filter(isTemplateCategory);
 
-  const fallbackCategories = (Object.keys(taskCardTemplates) as QuizCategory[]).filter(
+  const fallbackCategories = (Object.keys(taskCardTemplates) as (keyof typeof taskCardTemplates)[]).filter(
     (category) => !prioritizedCategories.includes(category),
   );
 
@@ -145,6 +149,9 @@ export async function generateTaskCardsFromLatestResult(uid: string) {
   const createdCardIds = await Promise.all(
     categories.map(async (category) => {
       const template = taskCardTemplates[category];
+      if (!template) {
+        return null;
+      }
       const taskCardRef = doc(collection(db, collectionNames.taskCards));
 
       await setDoc(taskCardRef, {
@@ -163,7 +170,8 @@ export async function generateTaskCardsFromLatestResult(uid: string) {
     }),
   );
 
-  return { createdCount: createdCardIds.length };
+  const successfulCardIds = createdCardIds.filter((cardId): cardId is string => Boolean(cardId));
+  return { createdCount: successfulCardIds.length };
 }
 
 export async function loadTaskCardsByFamilyId(familyId: string) {
