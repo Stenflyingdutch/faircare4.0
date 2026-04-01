@@ -11,7 +11,6 @@ import { collectionNames, getCurrentUserFamilyId } from '@/services/familyServic
 import {
   createTaskCard,
   deleteTaskCard,
-  generateTaskCardsFromLatestResult,
   loadTaskCardsByFamilyId,
   updateTaskCard,
 } from '@/services/taskCardService';
@@ -125,22 +124,6 @@ export default function KartenScreen() {
       setIsLoading(false);
     }
   }, [user]);
-
-  const handleGenerateCards = async () => {
-    if (!user) {
-      return;
-    }
-
-    setStatus('Karten werden aus dem neuesten Ergebnis erstellt ...');
-
-    try {
-      const outcome = await generateTaskCardsFromLatestResult(user.uid);
-      setStatus(`${outcome.createdCount} Karten wurden erstellt.`);
-      await loadCards();
-    } catch (error) {
-      setStatus(`Fehler beim Erstellen: ${getGermanFirebaseError(error)}`);
-    }
-  };
 
   const startEditing = (card: TaskCardListItem) => {
     setEditingCardId(card.taskCardId);
@@ -280,14 +263,6 @@ export default function KartenScreen() {
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>Karten</Text>
       <Text style={styles.subtitle}>Übersicht nach Kategorien inkl. Filter, Bearbeiten, Löschen und Neu-Anlegen.</Text>
-
-      <Pressable style={styles.generateButton} onPress={handleGenerateCards}>
-        <Text style={styles.buttonText}>Karten aus Ergebnissen erzeugen</Text>
-      </Pressable>
-
-      <Pressable style={styles.reloadButton} onPress={loadCards}>
-        <Text style={styles.buttonText}>Karten neu laden</Text>
-      </Pressable>
 
       <View style={styles.filterRow}>
         <Pressable
@@ -544,16 +519,6 @@ const styles = StyleSheet.create({
   subtitle: {
     textAlign: 'center',
     color: '#334155',
-  },
-  generateButton: {
-    backgroundColor: '#0f766e',
-    borderRadius: 8,
-    paddingVertical: 10,
-  },
-  reloadButton: {
-    backgroundColor: '#2563eb',
-    borderRadius: 8,
-    paddingVertical: 10,
   },
   createButton: {
     backgroundColor: '#0891b2',

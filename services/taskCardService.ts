@@ -131,7 +131,7 @@ export async function generateTaskCardsFromLatestResult(uid: string) {
 
   const latestResult = latestResultDoc.data() as ResultDocument;
 
-  const prioritizedCategories = latestResult.topConflictCategories
+  const prioritizedCategories = (latestResult.topConflictCategories ?? [])
     .filter((entry) => entry.score > 0)
     .map((entry) => entry.category)
     .filter(isTemplateCategory);
