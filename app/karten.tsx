@@ -2,7 +2,7 @@ import { Redirect } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { doc, getDoc } from 'firebase/firestore';
 import { useCallback, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { db } from '@/lib/firebase';
 import { getGermanFirebaseError } from '@/lib/firebaseError';
@@ -17,6 +17,7 @@ export default function KartenScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [status, setStatus] = useState('');
   const [ownerNames, setOwnerNames] = useState<Record<string, string>>({});
+  const { width } = useWindowDimensions();
 
   const loadCards = useCallback(async () => {
     if (!user) {
@@ -104,22 +105,28 @@ export default function KartenScreen() {
       <Text style={styles.statusText}>{status}</Text>
       {isLoading && <Text style={styles.infoText}>Lade ...</Text>}
 
-      {visibleCards.map((card) => (
-        <View key={card.taskCardId} style={styles.card}>
-          <Text style={styles.cardTitle}>{card.title}</Text>
-          <Text style={styles.cardMeta}>Kategorie: {card.category}</Text>
-          <Text style={styles.cardDescription}>{card.description}</Text>
-          <Text style={styles.cardMeta}>Häufigkeit: {card.frequency}</Text>
-          <Text style={styles.cardMeta}>Vorgeschlagene Person: {ownerNames[card.suggestedOwner] ?? card.suggestedOwner}</Text>
+      {visibleCards.length > 0 && (
+        <Text style={styles.swipeHint}>Tipp: Wische nach links oder rechts, um zwischen Karten zu wechseln.</Text>
+      )}
 
-          <Text style={styles.hiddenTitle}>Versteckte Verantwortungen:</Text>
-          {card.hiddenResponsibilities?.map((responsibility) => (
-            <Text key={`${card.taskCardId}-${responsibility}`} style={styles.hiddenItem}>
-              • {responsibility}
-            </Text>
-          ))}
-        </View>
-      ))}
+      <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false}>
+        {visibleCards.map((card) => (
+          <View key={card.taskCardId} style={[styles.card, { width: width - 40 }]}>
+            <Text style={styles.cardTitle}>{card.title}</Text>
+            <Text style={styles.cardMeta}>Kategorie: {card.category}</Text>
+            <Text style={styles.cardDescription}>{card.description}</Text>
+            <Text style={styles.cardMeta}>Häufigkeit: {card.frequency}</Text>
+            <Text style={styles.cardMeta}>Vorgeschlagene Person: {ownerNames[card.suggestedOwner] ?? card.suggestedOwner}</Text>
+
+            <Text style={styles.hiddenTitle}>Versteckte Verantwortungen:</Text>
+            {card.hiddenResponsibilities?.map((responsibility) => (
+              <Text key={`${card.taskCardId}-${responsibility}`} style={styles.hiddenItem}>
+                • {responsibility}
+              </Text>
+            ))}
+          </View>
+        ))}
+      </ScrollView>
     </ScrollView>
   );
 }
@@ -163,6 +170,11 @@ const styles = StyleSheet.create({
   infoText: {
     color: '#475569',
     textAlign: 'center',
+  },
+  swipeHint: {
+    color: '#475569',
+    textAlign: 'center',
+    fontWeight: '600',
   },
   card: {
     backgroundColor: '#ffffff',
