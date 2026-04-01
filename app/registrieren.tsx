@@ -6,6 +6,7 @@ import { getGermanFirebaseError } from '@/lib/firebaseError';
 
 export default function RegistrierenScreen() {
   const { user, register } = useAuth();
+  const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [status, setStatus] = useState('');
@@ -19,7 +20,7 @@ export default function RegistrierenScreen() {
     setIsSubmitting(true);
     setStatus('Registrierung läuft ...');
     try {
-      await register(email.trim(), password);
+      await register(email.trim(), password, displayName.trim());
       setStatus('Registrierung erfolgreich. Weiterleitung ...');
       router.replace('/startseite');
     } catch (error) {
@@ -33,6 +34,12 @@ export default function RegistrierenScreen() {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Registrieren</Text>
+      <TextInput
+        placeholder="Anzeigename"
+        value={displayName}
+        onChangeText={setDisplayName}
+        style={styles.input}
+      />
       <TextInput
         placeholder="E-Mail"
         value={email}
