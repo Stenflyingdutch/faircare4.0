@@ -185,9 +185,10 @@ export default function KartenScreen() {
         onStartShouldSetPanResponder: () => true,
         onMoveShouldSetPanResponder: (_, gestureState) =>
           Math.abs(gestureState.dx) > 3 || Math.abs(gestureState.dy) > 3,
+        onMoveShouldSetPanResponderCapture: () => true,
         onPanResponderMove: Animated.event([null, { dx: pan.x, dy: pan.y }], { useNativeDriver: false }),
-        onPanResponderRelease: (event) => {
-          const target = findDropTarget(event.nativeEvent.pageX, event.nativeEvent.pageY);
+        onPanResponderRelease: (_, gestureState) => {
+          const target = findDropTarget(gestureState.moveX, gestureState.moveY);
 
           if (!target) {
             Animated.spring(pan, {
@@ -234,7 +235,7 @@ export default function KartenScreen() {
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <ScrollView contentContainerStyle={styles.container} scrollEnabled={false}>
       <Text style={styles.title}>Karten</Text>
       <Text style={styles.subtitle}>Karte ziehen und in eine Box loslassen: Partner, Diskussion oder Ich.</Text>
 
