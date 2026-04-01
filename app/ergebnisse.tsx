@@ -1,4 +1,5 @@
 import { Redirect } from 'expo-router';
+import { FirebaseError } from 'firebase/app';
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useAuth } from '@/contexts/AuthContext';
@@ -37,7 +38,13 @@ export default function ErgebnisseScreen() {
       const nextResult = await buildAndStoreFamilyResults(user.uid);
       setResult(nextResult);
     } catch (loadError) {
-      setError(getGermanFirebaseError(loadError));
+      if (loadError instanceof FirebaseError && loadError.code === 'invalid-argument') {
+        setError(
+          'Ergebnisse konnten nicht berechnet werden. Bitte prüfe, ob dein Partnerprofil zur Familie hinzugefügt wurde und beide Elternteile das Quiz ausgefüllt haben.',
+        );
+      } else {
+        setError(getGermanFirebaseError(loadError));
+      }
     } finally {
       setIsLoading(false);
     }
