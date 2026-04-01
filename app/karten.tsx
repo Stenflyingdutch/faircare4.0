@@ -24,7 +24,7 @@ import {
 
 type TaskCardListItem = Awaited<ReturnType<typeof loadTaskCardsByFamilyId>>[number];
 
-const SWIPE_THRESHOLD = 110;
+const SWIPE_THRESHOLD = 60;
 
 export default function KartenScreen() {
   const { user } = useAuth();
@@ -242,7 +242,7 @@ export default function KartenScreen() {
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>Karten</Text>
-      <Text style={styles.subtitle}>Swipe wie bei Tinder: rechts = ich, links = Partner, oben = Diskussion.</Text>
+      <Text style={styles.subtitle}>Swipe wie bei Tinder: rechts = ich, links = Partner, oben = Diskussion. Kurzes Ziehen reicht.</Text>
 
       <Pressable style={styles.generateButton} onPress={handleGenerateCards}>
         <Text style={styles.buttonText}>Karten aus Ergebnissen erzeugen</Text>
@@ -254,6 +254,22 @@ export default function KartenScreen() {
 
       <Text style={styles.statusText}>{status}</Text>
       {isLoading && <Text style={styles.infoText}>Lade ...</Text>}
+
+
+
+      {activeCard && (
+        <View style={styles.quickActions}>
+          <Pressable style={[styles.quickButton, styles.leftButton]} onPress={() => handleCardDecision('left')} disabled={isDeciding}>
+            <Text style={styles.quickButtonText}>⬅️ Partner</Text>
+          </Pressable>
+          <Pressable style={[styles.quickButton, styles.upButton]} onPress={() => handleCardDecision('up')} disabled={isDeciding}>
+            <Text style={styles.quickButtonText}>⬆️ Diskussion</Text>
+          </Pressable>
+          <Pressable style={[styles.quickButton, styles.rightButton]} onPress={() => handleCardDecision('right')} disabled={isDeciding}>
+            <Text style={styles.quickButtonText}>➡️ Ich</Text>
+          </Pressable>
+        </View>
+      )}
 
       {activeCard ? (
         <Animated.View
@@ -336,6 +352,32 @@ const styles = StyleSheet.create({
   infoText: {
     color: '#475569',
     textAlign: 'center',
+  },
+
+  quickActions: {
+    width: '100%',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  quickButton: {
+    flex: 1,
+    borderRadius: 8,
+    paddingVertical: 10,
+  },
+  leftButton: {
+    backgroundColor: '#ea580c',
+  },
+  upButton: {
+    backgroundColor: '#7c3aed',
+  },
+  rightButton: {
+    backgroundColor: '#059669',
+  },
+  quickButtonText: {
+    color: '#fff',
+    textAlign: 'center',
+    fontWeight: '700',
   },
   card: {
     backgroundColor: '#ffffff',
