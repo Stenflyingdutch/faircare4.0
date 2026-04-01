@@ -2,22 +2,25 @@ import { Redirect } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { doc, getDoc } from 'firebase/firestore';
 import { useCallback, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { db } from '@/lib/firebase';
 import { getGermanFirebaseError } from '@/lib/firebaseError';
 import { collectionNames, getCurrentUserFamilyId } from '@/services/familyService';
 import {
+  createTaskCardForFamily,
   ensureInitialTaskCardsForCurrentFamily,
   loadTaskCardsByFamilyId,
   restoreTaskCard,
   storePostAssignmentResult,
+  updateTaskCardContent,
   updateTaskCardOwnership,
 } from '@/services/taskCardService';
 
 type TaskCardListItem = Awaited<ReturnType<typeof loadTaskCardsByFamilyId>>[number];
 
 type ActionType = 'take_me' | 'take_partner' | 'discard' | 'reopen';
+type OwnerFilterType = 'all' | 'me' | 'partner';
 
 export default function KartenScreen() {
   const { user } = useAuth();
@@ -28,6 +31,21 @@ export default function KartenScreen() {
   const [familyId, setFamilyId] = useState<string | null>(null);
   const [partnerId, setPartnerId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [ownerFilter, setOwnerFilter] = useState<OwnerFilterType>('all');
+  const [collapsedDiscarded, setCollapsedDiscarded] = useState(true);
+  const [editingCardId, setEditingCardId] = useState<string | null>(null);
+  const [draftCard, setDraftCard] = useState({
+    title: '',
+    description: '',
+    category: '',
+    thinkingTasksText: '',
+    doingTasksText: '',
+  });
+  const [newCard, setNewCard] = useState({
+    title: '',
+    description: '',
+    category: '',
+  });
 
   const loadCards = useCallback(async () => {
     if (!user) {
@@ -81,7 +99,18 @@ export default function KartenScreen() {
   const groupedCards = useMemo(() => {
     const map = new Map<string, TaskCardListItem[]>();
     cards
-      .filter((card) => card.relevanceStatus === 'active' && card.ownershipStatus === 'unassigned')
+      .filter((card) => {
+        if (card.relevanceStatus !== 'active' || card.ownershipStatus !== 'unassigned') {
+          return false;
+        }
+        if (ownerFilter === 'me') {
+          return card.suggestedOwner === user?.uid;
+        }
+        if (ownerFilter === 'partner') {
+          return Boolean(partnerId) && card.suggestedOwner === partnerId;
+        }
+        return true;
+      })
       .forEach((card) => {
         const category = card.category ?? 'Unkategorisiert';
         const list = map.get(category) ?? [];
@@ -90,7 +119,7 @@ export default function KartenScreen() {
       });
 
     return [...map.entries()].sort(([a], [b]) => a.localeCompare(b, 'de-DE'));
-  }, [cards]);
+  }, [cards, ownerFilter, partnerId, user?.uid]);
 
   const discardedCards = useMemo(
     () => cards.filter((card) => card.relevanceStatus === 'discarded'),
@@ -161,6 +190,85 @@ export default function KartenScreen() {
     });
   }, [calculateMentalLoadComparison, familyId]);
 
+  const startEditingCard = useCallback((card: TaskCardListItem) => {
+    setEditingCardId(card.taskCardId);
+    setDraftCard({
+      title: card.title,
+      description: card.description,
+      category: card.category ?? '',
+      thinkingTasksText: (card.thinkingTasks ?? []).join('\n'),
+      doingTasksText: (card.doingTasks ?? []).join('\n'),
+    });
+  }, []);
+
+  const cancelEditingCard = useCallback(() => {
+    setEditingCardId(null);
+    setDraftCard({
+      title: '',
+      description: '',
+      category: '',
+      thinkingTasksText: '',
+      doingTasksText: '',
+    });
+  }, []);
+
+  const saveEditedCard = useCallback(async () => {
+    if (!editingCardId || isSaving) {
+      return;
+    }
+
+    if (!draftCard.title.trim()) {
+      setStatus('Bitte einen Titel für die Karte eingeben.');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      await updateTaskCardContent(editingCardId, {
+        title: draftCard.title,
+        description: draftCard.description,
+        category: draftCard.category,
+        thinkingTasks: draftCard.thinkingTasksText.split('\n'),
+        doingTasks: draftCard.doingTasksText.split('\n'),
+      });
+      setStatus('Karte aktualisiert.');
+      cancelEditingCard();
+      await loadCards();
+    } catch (error) {
+      setStatus(`Fehler beim Speichern: ${getGermanFirebaseError(error)}`);
+    } finally {
+      setIsSaving(false);
+    }
+  }, [cancelEditingCard, draftCard, editingCardId, isSaving, loadCards]);
+
+  const addNewCard = useCallback(async () => {
+    if (!user || !familyId || isSaving) {
+      return;
+    }
+
+    if (!newCard.title.trim()) {
+      setStatus('Bitte einen Titel für die neue Aufgabe eingeben.');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      await createTaskCardForFamily(familyId, {
+        title: newCard.title,
+        description: newCard.description,
+        category: newCard.category,
+        suggestedOwner: user.uid,
+      });
+      setNewCard({ title: '', description: '', category: '' });
+      setStatus('Neue Aufgabe hinzugefügt.');
+      await loadCards();
+    } catch (error) {
+      setStatus(`Fehler beim Hinzufügen: ${getGermanFirebaseError(error)}`);
+    } finally {
+      setIsSaving(false);
+    }
+  }, [familyId, isSaving, loadCards, newCard, user]);
+
   const handleAction = useCallback(
     async (card: TaskCardListItem, actionType: ActionType) => {
       if (!user || isSaving) {
@@ -229,12 +337,32 @@ export default function KartenScreen() {
       <Text style={styles.subtitle}>Mental Load und Care-Arbeit für 0–2 Jahre – pro Verantwortung eine Karte.</Text>
       <Text style={styles.fairnessInfo}>{fairnessMessage}</Text>
 
-      <Pressable style={styles.reloadButton} onPress={loadCards}>
-        <Text style={styles.buttonText}>Karten neu laden</Text>
-      </Pressable>
-
       <Text style={styles.statusText}>{status}</Text>
       {isLoading && <Text style={styles.infoText}>Lade ...</Text>}
+      <View style={styles.filterRow}>
+        <Pressable
+          style={[styles.filterButton, ownerFilter === 'all' && styles.filterButtonActive]}
+          onPress={() => setOwnerFilter('all')}
+        >
+          <Text style={[styles.filterButtonText, ownerFilter === 'all' && styles.filterButtonTextActive]}>Alle</Text>
+        </Pressable>
+        <Pressable
+          style={[styles.filterButton, ownerFilter === 'me' && styles.filterButtonActive]}
+          onPress={() => setOwnerFilter('me')}
+        >
+          <Text style={[styles.filterButtonText, ownerFilter === 'me' && styles.filterButtonTextActive]}>
+            Mich ({ownerNames[user.uid] ?? 'Ich'})
+          </Text>
+        </Pressable>
+        <Pressable
+          style={[styles.filterButton, ownerFilter === 'partner' && styles.filterButtonActive]}
+          onPress={() => setOwnerFilter('partner')}
+        >
+          <Text style={[styles.filterButtonText, ownerFilter === 'partner' && styles.filterButtonTextActive]}>
+            Partner ({(partnerId && ownerNames[partnerId]) ?? 'Partner'})
+          </Text>
+        </Pressable>
+      </View>
 
       {groupedCards.map(([category, categoryCards]) => (
         <View key={category} style={styles.categorySection}>
@@ -242,76 +370,143 @@ export default function KartenScreen() {
 
           {categoryCards.map((card) => (
             <View key={card.taskCardId} style={styles.card}>
-              <Text style={styles.cardTitle}>{card.title}</Text>
-              <Text style={styles.cardDescription}>{card.description}</Text>
+              {editingCardId === card.taskCardId ? (
+                <>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Titel"
+                    value={draftCard.title}
+                    onChangeText={(value) => setDraftCard((prev) => ({ ...prev, title: value }))}
+                  />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Kategorie"
+                    value={draftCard.category}
+                    onChangeText={(value) => setDraftCard((prev) => ({ ...prev, category: value }))}
+                  />
+                  <TextInput
+                    style={[styles.input, styles.multilineInput]}
+                    multiline
+                    placeholder="Beschreibung"
+                    value={draftCard.description}
+                    onChangeText={(value) => setDraftCard((prev) => ({ ...prev, description: value }))}
+                  />
+                  <TextInput
+                    style={[styles.input, styles.multilineInput]}
+                    multiline
+                    placeholder={'Daran denken (eine Zeile = eine Aufgabe)'}
+                    value={draftCard.thinkingTasksText}
+                    onChangeText={(value) => setDraftCard((prev) => ({ ...prev, thinkingTasksText: value }))}
+                  />
+                  <TextInput
+                    style={[styles.input, styles.multilineInput]}
+                    multiline
+                    placeholder={'Machen (eine Zeile = eine Aufgabe)'}
+                    value={draftCard.doingTasksText}
+                    onChangeText={(value) => setDraftCard((prev) => ({ ...prev, doingTasksText: value }))}
+                  />
+                  <View style={styles.actionsRow}>
+                    <Pressable style={[styles.actionButton, styles.meButton]} onPress={saveEditedCard}>
+                      <Text style={styles.actionText}>Speichern</Text>
+                    </Pressable>
+                    <Pressable style={[styles.actionButton, styles.discardButton]} onPress={cancelEditingCard}>
+                      <Text style={styles.actionText}>Abbrechen</Text>
+                    </Pressable>
+                  </View>
+                </>
+              ) : (
+                <>
+                  <Text style={styles.cardTitle}>{card.title}</Text>
+                  <Text style={styles.cardDescription}>{card.description}</Text>
 
-              <Text style={styles.listTitle}>Daran denken</Text>
-              {card.thinkingTasks?.map((task) => (
-                <Text key={`${card.taskCardId}-think-${task}`} style={styles.listItem}>
-                  • {task}
-                </Text>
-              ))}
+                  <Text style={styles.listTitle}>Daran denken</Text>
+                  {card.thinkingTasks?.map((task) => (
+                    <Text key={`${card.taskCardId}-think-${task}`} style={styles.listItem}>
+                      • {task}
+                    </Text>
+                  ))}
 
-              <Text style={styles.listTitle}>Machen</Text>
-              {card.doingTasks?.map((task) => (
-                <Text key={`${card.taskCardId}-do-${task}`} style={styles.listItem}>
-                  • {task}
-                </Text>
-              ))}
+                  <Text style={styles.listTitle}>Machen</Text>
+                  {card.doingTasks?.map((task) => (
+                    <Text key={`${card.taskCardId}-do-${task}`} style={styles.listItem}>
+                      • {task}
+                    </Text>
+                  ))}
 
-              <Text style={styles.metaText}>
-                Vorgeschlagene Zuständigkeit: {card.suggestedOwner ? ownerNames[card.suggestedOwner] ?? card.suggestedOwner : 'Offen'}
-              </Text>
-              <Text style={styles.metaText}>Status: {card.ownershipStatus}</Text>
+                  <Text style={styles.metaText}>
+                    Vorgeschlagene Zuständigkeit:{' '}
+                    {card.suggestedOwner ? ownerNames[card.suggestedOwner] ?? card.suggestedOwner : 'Offen'}
+                  </Text>
+                  <Text style={styles.metaText}>Status: {card.ownershipStatus}</Text>
 
-              <View style={styles.actionsRow}>
-                <Pressable style={[styles.actionButton, styles.meButton]} onPress={() => handleAction(card, 'take_me')}>
-                  <Text style={styles.actionText}>Ich übernehme</Text>
-                </Pressable>
-                <Pressable style={[styles.actionButton, styles.partnerButton]} onPress={() => handleAction(card, 'take_partner')}>
-                  <Text style={styles.actionText}>Partner übernimmt</Text>
-                </Pressable>
-              </View>
-              <View style={styles.actionsRow}>
-                <Pressable style={[styles.actionButton, styles.discardButton]} onPress={() => handleAction(card, 'discard')}>
-                  <Text style={styles.actionText}>Nicht relevant</Text>
-                </Pressable>
-              </View>
+                  <View style={styles.actionsRow}>
+                    <Pressable style={[styles.actionButton, styles.meButton]} onPress={() => handleAction(card, 'take_me')}>
+                      <Text style={styles.actionText}>Ich übernehme</Text>
+                    </Pressable>
+                    <Pressable style={[styles.actionButton, styles.partnerButton]} onPress={() => handleAction(card, 'take_partner')}>
+                      <Text style={styles.actionText}>Partner übernimmt</Text>
+                    </Pressable>
+                  </View>
+                  <View style={styles.actionsRow}>
+                    <Pressable style={[styles.actionButton, styles.discardButton]} onPress={() => handleAction(card, 'discard')}>
+                      <Text style={styles.actionText}>Nicht relevant</Text>
+                    </Pressable>
+                    <Pressable style={[styles.actionButton, styles.partnerButton]} onPress={() => startEditingCard(card)}>
+                      <Text style={styles.actionText}>Bearbeiten</Text>
+                    </Pressable>
+                  </View>
+                </>
+              )}
             </View>
           ))}
         </View>
       ))}
 
       <View style={styles.categorySection}>
-        <Text style={styles.categoryTitle}>Wöchentlicher Check-in: Neu verhandeln</Text>
-        <Text style={styles.infoText}>Bereits zugewiesene Karten können hier wieder geöffnet werden.</Text>
-        {cards
-          .filter((card) => card.ownershipStatus === 'assigned' && card.relevanceStatus !== 'discarded')
-          .map((card) => (
-            <View key={`assigned-${card.taskCardId}`} style={styles.checkinCard}>
-              <Text style={styles.cardTitle}>{card.title}</Text>
-              <Text style={styles.metaText}>
-                Aktuell zuständig: {card.assignedTo ? ownerNames[card.assignedTo] ?? card.assignedTo : 'Offen'}
-              </Text>
-              <Pressable style={[styles.actionButton, styles.partnerButton]} onPress={() => handleAction(card, 'reopen')}>
-                <Text style={styles.actionText}>Im Check-in neu verhandeln</Text>
-              </Pressable>
-            </View>
-          ))}
+        <Text style={styles.categoryTitle}>Neue Aufgabe hinzufügen</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Titel der Aufgabe"
+          value={newCard.title}
+          onChangeText={(value) => setNewCard((prev) => ({ ...prev, title: value }))}
+        />
+        <TextInput
+          style={styles.input}
+          placeholder="Kategorie"
+          value={newCard.category}
+          onChangeText={(value) => setNewCard((prev) => ({ ...prev, category: value }))}
+        />
+        <TextInput
+          style={[styles.input, styles.multilineInput]}
+          multiline
+          placeholder="Beschreibung"
+          value={newCard.description}
+          onChangeText={(value) => setNewCard((prev) => ({ ...prev, description: value }))}
+        />
+        <Pressable style={[styles.actionButton, styles.meButton]} onPress={addNewCard}>
+          <Text style={styles.actionText}>Neu hinzufügen</Text>
+        </Pressable>
       </View>
 
       <View style={styles.categorySection}>
-        <Text style={styles.categoryTitle}>Nicht relevant</Text>
-        {discardedCards.length === 0 && <Text style={styles.infoText}>Keine verworfenen Karten.</Text>}
-        {discardedCards.map((card) => (
-          <View key={`discarded-${card.taskCardId}`} style={styles.checkinCard}>
-            <Text style={styles.cardTitle}>{card.title}</Text>
-            <Text style={styles.cardDescription}>{card.description}</Text>
-            <Pressable style={[styles.actionButton, styles.meButton]} onPress={() => handleAction(card, 'reopen')}>
-              <Text style={styles.actionText}>Wieder aktivieren</Text>
-            </Pressable>
-          </View>
-        ))}
+        <Pressable style={styles.collapseHeader} onPress={() => setCollapsedDiscarded((prev) => !prev)}>
+          <Text style={styles.categoryTitle}>Nicht relevant ({discardedCards.length})</Text>
+          <Text style={styles.metaText}>{collapsedDiscarded ? 'Ausklappen' : 'Einklappen'}</Text>
+        </Pressable>
+        {!collapsedDiscarded && (
+          <>
+            {discardedCards.length === 0 && <Text style={styles.infoText}>Keine verworfenen Karten.</Text>}
+            {discardedCards.map((card) => (
+              <View key={`discarded-${card.taskCardId}`} style={styles.checkinCard}>
+                <Text style={styles.cardTitle}>{card.title}</Text>
+                <Text style={styles.cardDescription}>{card.description}</Text>
+                <Pressable style={[styles.actionButton, styles.meButton]} onPress={() => handleAction(card, 'reopen')}>
+                  <Text style={styles.actionText}>Wieder aktivieren</Text>
+                </Pressable>
+              </View>
+            ))}
+          </>
+        )}
       </View>
 
       {comparison && (
@@ -355,16 +550,6 @@ const styles = StyleSheet.create({
     color: '#1d4ed8',
     fontWeight: '600',
   },
-  reloadButton: {
-    backgroundColor: '#2563eb',
-    borderRadius: 8,
-    paddingVertical: 10,
-  },
-  buttonText: {
-    color: '#ffffff',
-    textAlign: 'center',
-    fontWeight: '700',
-  },
   statusText: {
     color: '#1e293b',
     textAlign: 'center',
@@ -372,6 +557,30 @@ const styles = StyleSheet.create({
   },
   infoText: {
     color: '#475569',
+  },
+  filterRow: {
+    flexDirection: 'row',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  filterButton: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#93c5fd',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    backgroundColor: '#eff6ff',
+  },
+  filterButtonActive: {
+    backgroundColor: '#1d4ed8',
+    borderColor: '#1d4ed8',
+  },
+  filterButtonText: {
+    color: '#0f172a',
+    fontWeight: '600',
+  },
+  filterButtonTextActive: {
+    color: '#ffffff',
   },
   categorySection: {
     borderWidth: 1,
@@ -447,5 +656,23 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontWeight: '700',
     fontSize: 12,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    backgroundColor: '#ffffff',
+    color: '#0f172a',
+  },
+  multilineInput: {
+    minHeight: 70,
+    textAlignVertical: 'top',
+  },
+  collapseHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
 });

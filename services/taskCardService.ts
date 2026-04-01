@@ -503,6 +503,52 @@ export async function restoreTaskCard(taskCardId: string) {
   });
 }
 
+export async function updateTaskCardContent(
+  taskCardId: string,
+  payload: {
+    title: string;
+    description: string;
+    category: string;
+    thinkingTasks: string[];
+    doingTasks: string[];
+  },
+) {
+  await updateDoc(doc(db, collectionNames.taskCards, taskCardId), {
+    title: payload.title.trim(),
+    description: payload.description.trim(),
+    category: payload.category.trim() || 'Unkategorisiert',
+    thinkingTasks: payload.thinkingTasks.map((task) => task.trim()).filter(Boolean),
+    doingTasks: payload.doingTasks.map((task) => task.trim()).filter(Boolean),
+    updatedAt: serverTimestamp(),
+  });
+}
+
+export async function createTaskCardForFamily(
+  familyId: string,
+  payload: {
+    title: string;
+    description: string;
+    category: string;
+    suggestedOwner: string | null;
+  },
+) {
+  const taskCardRef = doc(collection(db, collectionNames.taskCards));
+  await setDoc(taskCardRef, {
+    familyId,
+    category: payload.category.trim() || 'Unkategorisiert',
+    title: payload.title.trim(),
+    description: payload.description.trim(),
+    thinkingTasks: [],
+    doingTasks: [],
+    relevanceStatus: 'active',
+    ownershipStatus: 'unassigned',
+    assignedTo: null,
+    suggestedOwner: payload.suggestedOwner,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+}
+
 function buildFairnessMessage() {
   return (
     'Der Vergleich ist eine Schätzung und keine feste Wahrheit. Ziel ist nicht eine starre 50:50-Aufteilung, sondern ' +
