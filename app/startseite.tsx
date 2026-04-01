@@ -1,5 +1,5 @@
 import { Redirect } from 'expo-router';
-import { Timestamp, addDoc, collection, getDocs, limit, orderBy, query, serverTimestamp } from 'firebase/firestore';
+import { Timestamp, addDoc, collection, getDocs, limit, orderBy, query } from 'firebase/firestore';
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useAuth } from '@/contexts/AuthContext';
@@ -27,10 +27,9 @@ export default function StartseiteScreen() {
       return '-';
     }
 
-    const createdAt =
-      doc.createdAt instanceof Timestamp
-        ? doc.createdAt.toDate().toLocaleString('de-DE')
-        : 'noch nicht gesetzt';
+    const createdAt = doc.createdAt instanceof Timestamp
+      ? doc.createdAt.toDate().toLocaleString('de-DE')
+      : 'kein Datum im Dokument';
 
     return `Nachricht: ${doc.message ?? '-'} | Quelle: ${doc.source ?? '-'} | Erstellt am: ${createdAt}`;
   };
@@ -40,7 +39,7 @@ export default function StartseiteScreen() {
     try {
       const docRef = await addDoc(collection(db, 'healthChecks'), {
         message: 'Firestore Test erfolgreich geschrieben',
-        createdAt: serverTimestamp(),
+        createdAt: Timestamp.now(),
         source: 'expo-app',
       });
       setStatus(`Erfolg: Dokument geschrieben mit ID ${docRef.id}`);
