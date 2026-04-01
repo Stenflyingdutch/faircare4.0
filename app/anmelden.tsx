@@ -2,6 +2,7 @@ import { Link, Redirect, router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useAuth } from '@/contexts/AuthContext';
+import { getGermanFirebaseError } from '@/lib/firebaseError';
 
 export default function AnmeldenScreen() {
   const { user, login } = useAuth();
@@ -22,7 +23,7 @@ export default function AnmeldenScreen() {
       setStatus('Anmeldung erfolgreich. Weiterleitung ...');
       router.replace('/startseite');
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unbekannter Fehler';
+      const message = getGermanFirebaseError(error);
       setStatus(`Fehler bei der Anmeldung: ${message}`);
     } finally {
       setIsSubmitting(false);

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { db } from '@/lib/firebase';
+import { getGermanFirebaseError } from '@/lib/firebaseError';
 
 type HealthCheck = {
   message?: string;
@@ -31,7 +32,7 @@ export default function StartseiteScreen() {
       });
       setStatus(`Erfolg: Dokument geschrieben mit ID ${docRef.id}`);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unbekannter Fehler';
+      const message = getGermanFirebaseError(error);
       setStatus(`Fehler beim Schreiben: ${message}`);
     }
   };
@@ -47,7 +48,7 @@ export default function StartseiteScreen() {
       setErstesDokument(first ?? null);
       setStatus('Erfolg: Daten gelesen.');
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unbekannter Fehler';
+      const message = getGermanFirebaseError(error);
       setStatus(`Fehler beim Lesen: ${message}`);
     }
   };
@@ -56,7 +57,7 @@ export default function StartseiteScreen() {
     try {
       await logout();
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unbekannter Fehler';
+      const message = getGermanFirebaseError(error);
       setStatus(`Fehler beim Abmelden: ${message}`);
     }
   };
