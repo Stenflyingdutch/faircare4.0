@@ -33,14 +33,39 @@ export interface QuizAnswer {
   questionId: string;
   doesIt: string;
   thinksAboutIt: string;
+  satisfaction: 'unhappy' | 'neutral' | 'happy';
   updatedAt: FirestoreDate;
 }
 
 export interface ResultItem {
   resultId: string;
   familyId: string;
-  userId: string;
-  score: number;
+  userIds: string[];
+  scoresPerUser: Record<string, {
+    taskLoadScore: number;
+    mentalLoadScore: number;
+    satisfactionScore: number;
+  }>;
+  mismatchQuestions: Array<{
+    questionId: string;
+    category: string;
+    prompt: string;
+    mismatchScore: number;
+    dissatisfactionScore: number;
+    conflictScore: number;
+  }>;
+  conflictQuestions: Array<{
+    questionId: string;
+    category: string;
+    prompt: string;
+    mismatchScore: number;
+    dissatisfactionScore: number;
+    conflictScore: number;
+  }>;
+  topConflictCategories: Array<{
+    category: string;
+    score: number;
+  }>;
   createdAt: FirestoreDate;
 }
 

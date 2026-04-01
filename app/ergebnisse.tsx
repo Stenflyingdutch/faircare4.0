@@ -7,6 +7,18 @@ import { buildAndStoreFamilyResults } from '@/services/resultsService';
 
 type ErgebnisState = Awaited<ReturnType<typeof buildAndStoreFamilyResults>>;
 
+function getConflictStyle(score: number) {
+  if (score >= 1.7) {
+    return { label: 'Hoch', color: '#b91c1c', backgroundColor: '#fee2e2' };
+  }
+
+  if (score >= 1.1) {
+    return { label: 'Mittel', color: '#b45309', backgroundColor: '#fef3c7' };
+  }
+
+  return { label: 'Niedrig', color: '#166534', backgroundColor: '#dcfce7' };
+}
+
 export default function ErgebnisseScreen() {
   const { user } = useAuth();
   const [result, setResult] = useState<ErgebnisState | null>(null);
@@ -56,7 +68,7 @@ export default function ErgebnisseScreen() {
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>Ergebnisse</Text>
-      <Text style={styles.subtitle}>Vergleich der Quiz-Antworten beider Elternteile.</Text>
+      <Text style={styles.subtitle}>Vergleich der Quiz-Antworten beider Elternteile mit Fokus auf Zufriedenheit.</Text>
 
       <Pressable style={styles.reloadButton} onPress={loadResults}>
         <Text style={styles.reloadButtonText}>Neu berechnen</Text>
@@ -74,29 +86,41 @@ export default function ErgebnisseScreen() {
                 <Text style={styles.cardTitle}>{card.displayName}</Text>
                 <Text style={styles.cardText}>Task Load: {card.taskLoadScore}%</Text>
                 <Text style={styles.cardText}>Mental Load: {card.mentalLoadScore}%</Text>
-                <Text style={styles.cardText}>Verantwortung: {card.responsibilityScore}%</Text>
+                <Text style={styles.cardText}>Zufriedenheit: {card.satisfactionScore}%</Text>
               </View>
             ))}
           </View>
 
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Größte Unterschiede</Text>
-            {result.mismatchQuestions.slice(0, 5).map((item) => (
-              <View key={item.questionId} style={styles.listItem}>
-                <Text style={styles.listPrimary}>
-                  {item.category}: {item.prompt}
-                </Text>
-                <Text style={styles.listSecondary}>Mismatch-Score: {item.mismatchScore}</Text>
-              </View>
-            ))}
+            <Text style={styles.sectionTitle}>Größte Konflikte (nach Priorität)</Text>
+            {result.conflictQuestions.slice(0, 8).map((item) => {
+              const conflictState = getConflictStyle(item.conflictScore);
+              const isHighMismatch = item.mismatchScore >= 1.5;
+              const isLowSatisfaction = item.dissatisfactionScore >= 0.75;
+
+              return (
+                <View
+                  key={item.questionId}
+                  style={[styles.listItem, { backgroundColor: conflictState.backgroundColor, borderColor: conflictState.color }]}
+                >
+                  <Text style={[styles.listPrimary, { color: conflictState.color }]}>[{conflictState.label}] {item.category}</Text>
+                  <Text style={styles.listQuestion}>{item.prompt}</Text>
+                  <Text style={styles.listSecondary}>Konflikt-Score: {item.conflictScore}</Text>
+                  <Text style={styles.listSecondary}>Mismatch-Score: {item.mismatchScore}</Text>
+                  <Text style={styles.listSecondary}>Unzufriedenheits-Score: {item.dissatisfactionScore}</Text>
+                  {isHighMismatch && <Text style={styles.warningText}>⚠️ Hoher Mismatch bei Aufgaben-/Mental-Load</Text>}
+                  {isLowSatisfaction && <Text style={styles.warningText}>⚠️ Niedrige Zufriedenheit</Text>}
+                </View>
+              );
+            })}
           </View>
 
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Top 5 Konfliktbereiche</Text>
+            <Text style={styles.sectionTitle}>Top Konflikt-Kategorien</Text>
             {result.topConflictCategories.map((category) => (
               <View key={category.category} style={styles.listItem}>
                 <Text style={styles.listPrimary}>{category.category}</Text>
-                <Text style={styles.listSecondary}>Konflikt-Score: {category.score}</Text>
+                <Text style={styles.listSecondary}>Durchschnittlicher Konflikt-Score: {category.score}</Text>
               </View>
             ))}
           </View>
@@ -173,12 +197,21 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 10,
     backgroundColor: '#ffffff',
+    gap: 2,
   },
   listPrimary: {
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#0f172a',
+  },
+  listQuestion: {
+    color: '#0f172a',
+    fontWeight: '500',
   },
   listSecondary: {
     color: '#475569',
+  },
+  warningText: {
+    color: '#b91c1c',
+    fontWeight: '600',
   },
 });
