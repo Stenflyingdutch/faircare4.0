@@ -1,18 +1,8 @@
 import { Redirect } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { doc, getDoc } from 'firebase/firestore';
-import { useCallback, useMemo, useRef, useState } from 'react';
-import {
-  Animated,
-  PanResponder,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  useWindowDimensions,
-  View,
-  type LayoutChangeEvent,
-} from 'react-native';
+import { useCallback, useMemo, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { db } from '@/lib/firebase';
 import { getGermanFirebaseError } from '@/lib/firebaseError';
@@ -24,8 +14,7 @@ import {
 } from '@/services/taskCardService';
 
 type TaskCardListItem = Awaited<ReturnType<typeof loadTaskCardsByFamilyId>>[number];
-type DropTarget = 'partner' | 'discussion' | 'me';
-type DropZone = { x: number; y: number; width: number; height: number };
+type DecisionTarget = 'partner' | 'discussion' | 'me';
 
 export default function KartenScreen() {
   const { user } = useAuth();
@@ -36,22 +25,6 @@ export default function KartenScreen() {
   const [partnerId, setPartnerId] = useState<string | null>(null);
   const [activeCardIndex, setActiveCardIndex] = useState(0);
   const [isDeciding, setIsDeciding] = useState(false);
-  const [dropZones, setDropZones] = useState<Partial<Record<DropTarget, DropZone>>>({});
-  const pan = useRef(new Animated.ValueXY()).current;
-  const dropZoneRefs = useRef<Partial<Record<DropTarget, View | null>>>({});
-  const { width } = useWindowDimensions();
-
-  const setDropZone = (target: DropTarget, event: LayoutChangeEvent) => {
-    event.persist();
-    requestAnimationFrame(() => {
-      dropZoneRefs.current[target]?.measureInWindow((x, y, zoneWidth, zoneHeight) => {
-        setDropZones((current) => ({
-          ...current,
-          [target]: { x, y, width: zoneWidth, height: zoneHeight },
-        }));
-      });
-    });
-  };
 
   const loadCards = useCallback(async () => {
     if (!user) {
@@ -100,19 +73,14 @@ export default function KartenScreen() {
     }
   }, [user]);
 
-  const animateToNextCard = useCallback(() => {
-    pan.setValue({ x: 0, y: 0 });
-    setActiveCardIndex((current) => current + 1);
-  }, [pan]);
-
   const handleCardDecision = useCallback(
-    async (target: DropTarget) => {
-      if (!user) {
+    async (target: DecisionTarget) => {
+      if (!user || isDeciding) {
         return;
       }
 
       const activeCard = cards[activeCardIndex];
-      if (!activeCard || isDeciding) {
+      if (!activeCard) {
         return;
       }
 
@@ -129,6 +97,7 @@ export default function KartenScreen() {
             setStatus('Kein Partnerprofil gefunden. Bitte Familie prüfen.');
             return;
           }
+
           await updateTaskCardDecision(activeCard.taskCardId, {
             suggestedOwner: partnerId,
             decisionStatus: 'owner_partner',
@@ -141,68 +110,14 @@ export default function KartenScreen() {
           setStatus('Zur Diskussion markiert.');
         }
 
-        animateToNextCard();
+        setActiveCardIndex((current) => current + 1);
       } catch (error) {
         setStatus(`Fehler beim Zuordnen: ${getGermanFirebaseError(error)}`);
-        Animated.spring(pan, {
-          toValue: { x: 0, y: 0 },
-          useNativeDriver: false,
-        }).start();
       } finally {
         setIsDeciding(false);
       }
     },
-    [activeCardIndex, animateToNextCard, cards, isDeciding, pan, partnerId, user],
-  );
-
-  const findDropTarget = useCallback(
-    (x: number, y: number): DropTarget | null => {
-      const zones = dropZones as Record<string, DropZone>;
-      const targets: DropTarget[] = ['partner', 'discussion', 'me'];
-
-      for (const target of targets) {
-        const zone = zones[target];
-        if (!zone) {
-          continue;
-        }
-
-        const withinX = x >= zone.x && x <= zone.x + zone.width;
-        const withinY = y >= zone.y && y <= zone.y + zone.height;
-
-        if (withinX && withinY) {
-          return target;
-        }
-      }
-
-      return null;
-    },
-    [dropZones],
-  );
-
-  const panResponder = useMemo(
-    () =>
-      PanResponder.create({
-        onStartShouldSetPanResponder: () => true,
-        onMoveShouldSetPanResponder: (_, gestureState) =>
-          Math.abs(gestureState.dx) > 3 || Math.abs(gestureState.dy) > 3,
-        onMoveShouldSetPanResponderCapture: () => true,
-        onPanResponderMove: Animated.event([null, { dx: pan.x, dy: pan.y }], { useNativeDriver: false }),
-        onPanResponderRelease: (_, gestureState) => {
-          const target = findDropTarget(gestureState.moveX, gestureState.moveY);
-
-          if (!target) {
-            Animated.spring(pan, {
-              toValue: { x: 0, y: 0 },
-              friction: 6,
-              useNativeDriver: false,
-            }).start();
-            return;
-          }
-
-          handleCardDecision(target);
-        },
-      }),
-    [findDropTarget, handleCardDecision, pan],
+    [activeCardIndex, cards, isDeciding, partnerId, user],
   );
 
   const handleGenerateCards = async () => {
@@ -235,9 +150,9 @@ export default function KartenScreen() {
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.container} scrollEnabled={false}>
+    <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>Karten</Text>
-      <Text style={styles.subtitle}>Karte ziehen und in eine Box loslassen: Partner, Diskussion oder Ich.</Text>
+      <Text style={styles.subtitle}>Zuordnung per Klick: Partner, Diskussion oder Ich.</Text>
 
       <Pressable style={styles.generateButton} onPress={handleGenerateCards}>
         <Text style={styles.buttonText}>Karten aus Ergebnissen erzeugen</Text>
@@ -251,16 +166,7 @@ export default function KartenScreen() {
       {isLoading && <Text style={styles.infoText}>Lade ...</Text>}
 
       {activeCard ? (
-        <Animated.View
-          {...panResponder.panHandlers}
-          style={[
-            styles.card,
-            {
-              width: width - 40,
-              transform: [{ translateX: pan.x }, { translateY: pan.y }],
-            },
-          ]}
-        >
+        <View style={styles.card}>
           <Text style={styles.cardCounter}>
             Karte {activeCardIndex + 1} von {visibleCards.length}
           </Text>
@@ -278,25 +184,39 @@ export default function KartenScreen() {
               • {responsibility}
             </Text>
           ))}
-        </Animated.View>
+        </View>
       ) : (
-        <View style={[styles.card, { width: width - 40 }]}>
+        <View style={styles.card}>
           <Text style={styles.cardTitle}>Keine weiteren Karten</Text>
           <Text style={styles.cardDescription}>Erzeuge neue Karten oder lade Karten erneut aus Firestore.</Text>
         </View>
       )}
 
-      <View style={styles.dropZoneRow}>
-        <View ref={(ref) => { dropZoneRefs.current.partner = ref; }} style={[styles.dropZone, styles.dropPartner]} onLayout={(event) => setDropZone('partner', event)}>
-          <Text style={styles.dropZoneText}>Partner</Text>
+      {activeCard && (
+        <View style={styles.actionsRow}>
+          <Pressable
+            style={[styles.actionButton, styles.partnerButton]}
+            onPress={() => handleCardDecision('partner')}
+            disabled={isDeciding}
+          >
+            <Text style={styles.actionText}>Partner</Text>
+          </Pressable>
+          <Pressable
+            style={[styles.actionButton, styles.discussionButton]}
+            onPress={() => handleCardDecision('discussion')}
+            disabled={isDeciding}
+          >
+            <Text style={styles.actionText}>Diskussion</Text>
+          </Pressable>
+          <Pressable
+            style={[styles.actionButton, styles.meButton]}
+            onPress={() => handleCardDecision('me')}
+            disabled={isDeciding}
+          >
+            <Text style={styles.actionText}>Ich</Text>
+          </Pressable>
         </View>
-        <View ref={(ref) => { dropZoneRefs.current.discussion = ref; }} style={[styles.dropZone, styles.dropDiscussion]} onLayout={(event) => setDropZone('discussion', event)}>
-          <Text style={styles.dropZoneText}>Diskussion</Text>
-        </View>
-        <View ref={(ref) => { dropZoneRefs.current.me = ref; }} style={[styles.dropZone, styles.dropMe]} onLayout={(event) => setDropZone('me', event)}>
-          <Text style={styles.dropZoneText}>Ich</Text>
-        </View>
-      </View>
+      )}
     </ScrollView>
   );
 }
@@ -306,7 +226,6 @@ const styles = StyleSheet.create({
     padding: 20,
     gap: 12,
     backgroundColor: '#f8fafc',
-    alignItems: 'center',
   },
   title: {
     fontSize: 30,
@@ -322,13 +241,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#0f766e',
     borderRadius: 8,
     paddingVertical: 10,
-    width: '100%',
   },
   reloadButton: {
     backgroundColor: '#2563eb',
     borderRadius: 8,
     paddingVertical: 10,
-    width: '100%',
   },
   buttonText: {
     color: '#ffffff',
@@ -376,33 +293,27 @@ const styles = StyleSheet.create({
   hiddenItem: {
     color: '#475569',
   },
-  dropZoneRow: {
-    width: '100%',
+  actionsRow: {
     flexDirection: 'row',
     gap: 8,
-    marginTop: 8,
   },
-  dropZone: {
+  actionButton: {
     flex: 1,
     borderRadius: 10,
-    borderWidth: 2,
-    paddingVertical: 14,
-    alignItems: 'center',
+    paddingVertical: 12,
   },
-  dropPartner: {
-    borderColor: '#ea580c',
-    backgroundColor: '#ffedd5',
+  partnerButton: {
+    backgroundColor: '#ea580c',
   },
-  dropDiscussion: {
-    borderColor: '#7c3aed',
-    backgroundColor: '#f3e8ff',
+  discussionButton: {
+    backgroundColor: '#7c3aed',
   },
-  dropMe: {
-    borderColor: '#059669',
-    backgroundColor: '#d1fae5',
+  meButton: {
+    backgroundColor: '#059669',
   },
-  dropZoneText: {
+  actionText: {
+    color: '#ffffff',
+    textAlign: 'center',
     fontWeight: '700',
-    color: '#0f172a',
   },
 });
