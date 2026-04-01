@@ -390,11 +390,7 @@ export default function KartenScreen() {
           {categoryCards.map((card) => (
             <View key={card.taskCardId} style={styles.card}>
               <Pressable style={styles.cardHeader} onPress={() => toggleCardExpanded(card.taskCardId)}>
-                <View>
-                  <Text style={styles.cardTitle}>{card.title}</Text>
-                  <Text style={styles.metaText}>Kategorie: {card.category || 'Unkategorisiert'}</Text>
-                </View>
-                <Text style={styles.metaText}>{expandedCardIds.includes(card.taskCardId) ? 'Einklappen' : 'Ausklappen'}</Text>
+                <Text style={styles.cardTitle}>{card.title}</Text>
               </Pressable>
               {expandedCardIds.includes(card.taskCardId) &&
                 (editingCardId === card.taskCardId ? (
@@ -483,10 +479,8 @@ export default function KartenScreen() {
                   ))}
 
                   <Text style={styles.metaText}>
-                    Vorgeschlagene Zuständigkeit:{' '}
-                    {card.suggestedOwner ? ownerNames[card.suggestedOwner] ?? card.suggestedOwner : 'Offen'}
+                    Zuständigkeit: {card.suggestedOwner ? ownerNames[card.suggestedOwner] ?? card.suggestedOwner : 'Offen'}
                   </Text>
-                  <Text style={styles.metaText}>Status: {card.ownershipStatus}</Text>
 
                   <View style={styles.actionsRow}>
                     <Pressable style={[styles.actionButton, styles.meButton]} onPress={() => handleAction(card, 'take_me')}>
