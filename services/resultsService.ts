@@ -268,13 +268,36 @@ export async function buildAndStoreFamilyResults(uid: string) {
 
   const familySnapshot = await getDoc(doc(db, collectionNames.families, familyId));
   const familyData = familySnapshot.data() as { memberIds?: string[] } | undefined;
-  const memberIds = familyData?.memberIds ?? [];
+  const memberIds = Array.from(
+    new Set((familyData?.memberIds ?? []).filter((memberId): memberId is string => typeof memberId === 'string' && memberId.trim().length > 0)),
+  );
 
   if (memberIds.length < 2) {
     throw new Error('Für Ergebnisse werden zwei Elternteile in derselben Familie benötigt.');
   }
 
-  const parentIds = [memberIds[0], memberIds[1]] as [string, string];
+  const answerSnapshot = await getDocs(
+    query(collection(db, collectionNames.quizAnswers), where('familyId', '==', familyId)),
+  );
+
+  const answerCounts = new Map<string, number>();
+  answerSnapshot.forEach((docSnapshot) => {
+    const answer = docSnapshot.data() as Partial<StoredQuizAnswer>;
+    if (!answer.userId || !memberIds.includes(answer.userId)) {
+      return;
+    }
+    answerCounts.set(answer.userId, (answerCounts.get(answer.userId) ?? 0) + 1);
+  });
+
+  const parentIds = (
+    [...answerCounts.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .map(([userId]) => userId)
+      .concat(memberIds)
+      .filter((userId, index, arr) => arr.indexOf(userId) === index)
+      .slice(0, 2) as string[]
+  ) as [string, string];
+
   const computed = await calculateResultsForFamily(familyId, parentIds);
 
   const resultDocId = `${familyId}_${Date.now()}`;
