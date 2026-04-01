@@ -29,6 +29,7 @@ function RootNavigation() {
       <Stack.Screen name="quiz" options={{ title: 'Fairness-Quiz' }} />
       <Stack.Screen name="ergebnisse" options={{ title: 'Ergebnisse' }} />
       <Stack.Screen name="karten" options={{ title: 'Karten' }} />
+      <Stack.Screen name="wochen-check-in" options={{ title: 'Wöchentlicher Check-in' }} />
     </Stack>
   );
 }

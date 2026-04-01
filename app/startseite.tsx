@@ -104,6 +104,10 @@ export default function StartseiteScreen() {
           <Text style={styles.buttonText}>Karten ansehen</Text>
         </Pressable>
 
+        <Pressable style={styles.checkinLink} onPress={() => router.push('/wochen-check-in' as never)}>
+          <Text style={styles.buttonText}>Wöchentlicher Check-in</Text>
+        </Pressable>
+
         <Pressable style={styles.loadButton} onPress={loadFamilyData}>
           <Text style={styles.buttonText}>Familiendaten laden</Text>
         </Pressable>
@@ -188,6 +192,11 @@ const styles = StyleSheet.create({
   },
   cardsLink: {
     backgroundColor: '#4f46e5',
+    borderRadius: 8,
+    paddingVertical: 12,
+  },
+  checkinLink: {
+    backgroundColor: '#0891b2',
     borderRadius: 8,
     paddingVertical: 12,
   },
