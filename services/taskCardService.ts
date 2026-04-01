@@ -94,18 +94,14 @@ function getTimestampMillis(value: unknown) {
   return typeof toMillis === 'function' ? toMillis() : 0;
 }
 
-function pickSuggestedOwner(result: ResultDocument, category: QuizCategory) {
+function pickSuggestedOwner(result: ResultDocument, _category: QuizCategory) {
   const [firstParentId, secondParentId] = result.userIds;
-  const byCategory = result.categoryScoresPerUser?.[category];
+  const firstCombined =
+    result.scoresPerUser[firstParentId].taskLoadScore + result.scoresPerUser[firstParentId].mentalLoadScore;
+  const secondCombined =
+    result.scoresPerUser[secondParentId].taskLoadScore + result.scoresPerUser[secondParentId].mentalLoadScore;
 
-  if (byCategory) {
-    return byCategory[firstParentId] <= byCategory[secondParentId] ? firstParentId : secondParentId;
-  }
-
-  return result.scoresPerUser[firstParentId].responsibilityScore <=
-    result.scoresPerUser[secondParentId].responsibilityScore
-    ? firstParentId
-    : secondParentId;
+  return firstCombined <= secondCombined ? firstParentId : secondParentId;
 }
 
 export async function generateTaskCardsFromLatestResult(uid: string) {
