@@ -1,4 +1,4 @@
-import { Redirect } from 'expo-router';
+import { Redirect, router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useAuth } from '@/contexts/AuthContext';
@@ -63,6 +63,7 @@ export default function QuizScreen() {
 
   const isCurrentComplete =
     currentAnswer?.doesIt && currentAnswer?.thinksAboutIt && currentAnswer?.feelsResponsible;
+  const isLastQuestion = activeIndex === QUIZ_QUESTIONS.length - 1;
 
   const onSelect = async (part: keyof AnswerFields, value: QuizOption) => {
     if (!familyId) {
@@ -151,11 +152,17 @@ export default function QuizScreen() {
               <Text style={styles.navText}>Zurück</Text>
             </Pressable>
             <Pressable
-              style={[styles.navButton, !isCurrentComplete && styles.navButtonDisabled]}
-              onPress={() => setActiveIndex((current) => Math.min(QUIZ_QUESTIONS.length - 1, current + 1))}
-              disabled={!isCurrentComplete || activeIndex === QUIZ_QUESTIONS.length - 1 || isSaving}
+              style={[styles.navButton, (!isCurrentComplete || isSaving) && styles.navButtonDisabled]}
+              onPress={() => {
+                if (isLastQuestion) {
+                  router.replace('/startseite');
+                  return;
+                }
+                setActiveIndex((current) => Math.min(QUIZ_QUESTIONS.length - 1, current + 1));
+              }}
+              disabled={!isCurrentComplete || isSaving}
             >
-              <Text style={styles.navText}>Weiter</Text>
+              <Text style={styles.navText}>{isLastQuestion ? 'Fertig' : 'Weiter'}</Text>
             </Pressable>
           </View>
         </>
