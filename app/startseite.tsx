@@ -1,10 +1,11 @@
 import { Redirect, router } from 'expo-router';
-import { doc, getDoc, getDocs, query, where, collection } from 'firebase/firestore';
+import { getDocs, query, where, collection } from 'firebase/firestore';
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { db } from '@/lib/firebase';
 import { getGermanFirebaseError } from '@/lib/firebaseError';
+import { getCurrentUserFamilyId } from '@/services/familyService';
 
 export default function StartseiteScreen() {
   const { user, logout } = useAuth();
@@ -19,9 +20,8 @@ export default function StartseiteScreen() {
   const loadFamilyData = async () => {
     setStatus('Lade Familienbezug ...');
     try {
-      const userSnapshot = await getDoc(doc(db, 'users', user.uid));
-      const currentFamilyId = userSnapshot.data()?.familyId as string | null | undefined;
-      setFamilyId(currentFamilyId ?? null);
+      const currentFamilyId = await getCurrentUserFamilyId(user.uid);
+      setFamilyId(currentFamilyId);
 
       if (!currentFamilyId) {
         setChildrenCount(0);

@@ -1,12 +1,14 @@
 import {
+  arrayUnion,
   collection,
   doc,
+  getDoc,
   getDocs,
   limit,
   query,
-  runTransaction,
   serverTimestamp,
   setDoc,
+  updateDoc,
   where,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -57,13 +59,17 @@ export async function createUserProfile(params: {
   displayName: string;
 }) {
   const userRef = doc(db, collectionNames.users, params.uid);
-  await setDoc(userRef, {
-    uid: params.uid,
-    email: params.email,
-    displayName: params.displayName,
-    familyId: null,
-    createdAt: serverTimestamp(),
-  } satisfies Omit<UserProfile, 'createdAt'> & { createdAt: ReturnType<typeof serverTimestamp> });
+  await setDoc(
+    userRef,
+    {
+      uid: params.uid,
+      email: params.email,
+      displayName: params.displayName,
+      familyId: null,
+      createdAt: serverTimestamp(),
+    } satisfies Omit<UserProfile, 'createdAt'> & { createdAt: ReturnType<typeof serverTimestamp> },
+    { merge: true },
+  );
 }
 
 export async function createFamily(params: { uid: string; familyName: string }) {
@@ -73,22 +79,15 @@ export async function createFamily(params: { uid: string; familyName: string }) 
   const familyRef = doc(db, collectionNames.families, familyId);
   const userRef = doc(db, collectionNames.users, params.uid);
 
-  await runTransaction(db, async (transaction) => {
-    const userSnapshot = await transaction.get(userRef);
-    if (!userSnapshot.exists()) {
-      throw new Error('Benutzerprofil wurde nicht gefunden.');
-    }
+  await setDoc(familyRef, {
+    familyId,
+    name: params.familyName,
+    inviteCode,
+    memberIds: [params.uid],
+    createdAt: serverTimestamp(),
+  } satisfies Omit<Family, 'createdAt'> & { createdAt: ReturnType<typeof serverTimestamp> });
 
-    transaction.set(familyRef, {
-      familyId,
-      name: params.familyName,
-      inviteCode,
-      memberIds: [params.uid],
-      createdAt: serverTimestamp(),
-    } satisfies Omit<Family, 'createdAt'> & { createdAt: ReturnType<typeof serverTimestamp> });
-
-    transaction.update(userRef, { familyId });
-  });
+  await setDoc(userRef, { familyId }, { merge: true });
 
   return { familyId, inviteCode };
 }
@@ -110,28 +109,13 @@ export async function joinFamilyByInviteCode(params: { uid: string; inviteCode: 
   const familyRef = doc(db, collectionNames.families, familyDoc.id);
   const userRef = doc(db, collectionNames.users, params.uid);
 
-  await runTransaction(db, async (transaction) => {
-    const currentFamily = await transaction.get(familyRef);
-    const currentUser = await transaction.get(userRef);
+  const familyData = familyDoc.data() as Pick<Family, 'familyId'>;
+  const familyId = familyData.familyId || familyDoc.id;
 
-    if (!currentFamily.exists()) {
-      throw new Error('Familie wurde nicht gefunden.');
-    }
+  await updateDoc(familyRef, { memberIds: arrayUnion(params.uid) });
+  await setDoc(userRef, { familyId }, { merge: true });
 
-    if (!currentUser.exists()) {
-      throw new Error('Benutzerprofil wurde nicht gefunden.');
-    }
-
-    const familyData = currentFamily.data() as Pick<Family, 'memberIds' | 'familyId'>;
-    const newMemberIds = familyData.memberIds.includes(params.uid)
-      ? familyData.memberIds
-      : [...familyData.memberIds, params.uid];
-
-    transaction.update(familyRef, { memberIds: newMemberIds });
-    transaction.update(userRef, { familyId: familyData.familyId });
-  });
-
-  return { familyId: familyDoc.id };
+  return { familyId };
 }
 
 export async function createChildProfile(params: {
@@ -149,6 +133,11 @@ export async function createChildProfile(params: {
   } satisfies Omit<ChildProfile, 'createdAt'> & { createdAt: ReturnType<typeof serverTimestamp> });
 
   return { childId: childRef.id };
+}
+
+export async function getCurrentUserFamilyId(uid: string) {
+  const userSnapshot = await getDoc(doc(db, collectionNames.users, uid));
+  return (userSnapshot.data()?.familyId as string | null | undefined) ?? null;
 }
 
 export { collectionNames };
