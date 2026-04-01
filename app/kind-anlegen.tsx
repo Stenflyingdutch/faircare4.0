@@ -1,11 +1,9 @@
 import { Redirect } from 'expo-router';
-import { doc, getDoc } from 'firebase/firestore';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useAuth } from '@/contexts/AuthContext';
-import { db } from '@/lib/firebase';
 import { getGermanFirebaseError } from '@/lib/firebaseError';
-import { createChildProfile } from '@/services/familyService';
+import { createChildProfile, getCurrentUserFamilyId } from '@/services/familyService';
 
 export default function KindAnlegenScreen() {
   const { user } = useAuth();
@@ -22,8 +20,7 @@ export default function KindAnlegenScreen() {
     setIsSubmitting(true);
     setStatus('Kind wird angelegt ...');
     try {
-      const userSnapshot = await getDoc(doc(db, 'users', user.uid));
-      const familyId = userSnapshot.data()?.familyId as string | undefined;
+      const familyId = await getCurrentUserFamilyId(user.uid);
 
       if (!familyId) {
         throw new Error('Bitte zuerst eine Familie erstellen oder einer Familie beitreten.');
