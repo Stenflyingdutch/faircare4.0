@@ -5,11 +5,14 @@ import { useMentalLoadFlow } from '@/contexts/MentalLoadFlowContext';
 export default function GemeinsamesErgebnisScreen() {
   const { session } = useMentalLoadFlow();
 
-  if (!session.notificationState.partnerCompleted || !session.passwordSetup.initiator || !session.passwordSetup.partner) {
+  const hasMinimumRegistration = Boolean(session.initiatorUser?.email && session.partnerUser?.email);
+  const hasBothPasswords = session.passwordSetup.initiator && session.passwordSetup.partner;
+
+  if (!session.notificationState.partnerCompleted || !hasMinimumRegistration) {
     return (
       <View style={styles.container}>
         <Text style={styles.title}>Euer Mental Load im Alltag</Text>
-        <Text style={styles.text}>Gemeinsames Ergebnis wird freigeschaltet, sobald beide Quiz abgesendet und beide Kennwörter über die Login-Seite gesetzt haben.</Text>
+        <Text style={styles.text}>Gemeinsames Ergebnis wird freigeschaltet, sobald der Partner das Quiz abgesendet hat und beide mit Name + E-Mail registriert sind.</Text>
       </View>
     );
   }
@@ -23,6 +26,12 @@ export default function GemeinsamesErgebnisScreen() {
       <Text style={styles.text}>Anteil am Mitdenken im Alltag</Text>
       <Text style={styles.section}>Hier seht ihr es unterschiedlich.</Text>
       <Text style={styles.section}>Hier fehlt klare Verantwortung.</Text>
+      {!hasBothPasswords && (
+        <Text style={styles.text}>Die Einordnung in Relation zu euren individuellen Bewertungen wird nach Kennwort-Festlegung für beide sichtbar.</Text>
+      )}
+      {hasBothPasswords && (
+        <Text style={styles.text}>Relation zur eigenen Bewertung: Eure Selbstwahrnehmung und das gemeinsame Bild sind jetzt vollständig verfügbar.</Text>
+      )}
       <Pressable style={styles.button} onPress={() => router.push('/ziele-auswahl' as never)}>
         <Text style={styles.buttonText}>Ziele festlegen</Text>
       </Pressable>

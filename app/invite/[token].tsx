@@ -26,9 +26,9 @@ export default function InviteTokenScreen() {
       {isValidToken ? (
         <>
           <Text style={styles.text}>Einladung erkannt. Die Kinderdaten werden aus dem Paar-Kontext übernommen.</Text>
-          <Text style={styles.text}>Starte jetzt direkt mit dem Quiz aus Partner-Sicht.</Text>
-          <Pressable style={styles.button} onPress={() => router.replace({ pathname: '/quiz-intro', params: { mode: 'partner' } } as never)}>
-            <Text style={styles.buttonText}>Zum Partner-Quiz</Text>
+          <Text style={styles.text}>Bevor das Partner-Quiz startet, registriere dich kurz mit Name und E-Mail.</Text>
+          <Pressable style={styles.button} onPress={() => router.replace({ pathname: '/registrieren', params: { mode: 'partner', stage: 'prequiz' } } as never)}>
+            <Text style={styles.buttonText}>Weiter zur Registrierung</Text>
           </Pressable>
         </>
       ) : (

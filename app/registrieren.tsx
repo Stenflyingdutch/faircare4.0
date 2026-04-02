@@ -8,8 +8,9 @@ import { getGermanFirebaseError } from '@/lib/firebaseError';
 export default function RegistrierungScreen() {
   const { user, register } = useAuth();
   const { saveInitiatorUser, savePartnerUser } = useMentalLoadFlow();
-  const params = useLocalSearchParams<{ mode?: string }>();
+  const params = useLocalSearchParams<{ mode?: string; stage?: string }>();
   const isPartner = params.mode === 'partner';
+  const isPartnerPreQuiz = isPartner && params.stage === 'prequiz';
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
   const [status, setStatus] = useState('');
@@ -27,6 +28,11 @@ export default function RegistrierungScreen() {
       } else {
         saveInitiatorUser({ id: email.trim().toLowerCase(), displayName: displayName.trim(), email: email.trim() });
       }
+      if (isPartnerPreQuiz) {
+        router.replace({ pathname: '/quiz-intro', params: { mode: 'partner' } } as never);
+        return;
+      }
+
       router.replace({ pathname: '/eigenes-ergebnis', params: { mode: isPartner ? 'partner' : 'initiator' } } as never);
     } catch (error) {
       setStatus(`Fehler: ${getGermanFirebaseError(error)}`);
@@ -35,8 +41,8 @@ export default function RegistrierungScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Ergebnis freischalten</Text>
-      <Text style={styles.text}>Speichere dein Ergebnis und vergleiche es später mit deinem Partner.</Text>
+      <Text style={styles.title}>{isPartnerPreQuiz ? 'Kurz registrieren' : 'Ergebnis freischalten'}</Text>
+      <Text style={styles.text}>{isPartnerPreQuiz ? 'Das ist die minimale Voraussetzung, damit später das gemeinsame Ergebnis sichtbar ist.' : 'Speichere dein Ergebnis und vergleiche es später mit deinem Partner.'}</Text>
       <TextInput placeholder="Vorname" style={styles.input} value={displayName} onChangeText={setDisplayName} />
       <TextInput
         placeholder="E-Mail-Adresse"
