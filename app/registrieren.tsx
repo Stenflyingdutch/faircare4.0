@@ -4,11 +4,13 @@ import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMentalLoadFlow } from '@/contexts/MentalLoadFlowContext';
 import { saveMentalLoadAnswers } from '@/services/mentalLoadPersistenceService';
+import { createFamily, joinFamilyByInviteCode } from '@/services/familyService';
+import { auth } from '@/lib/firebase';
 import { getGermanFirebaseError } from '@/lib/firebaseError';
 
 export default function RegistrierungScreen() {
   const { user, register } = useAuth();
-  const { session, saveInitiatorUser, savePartnerUser } = useMentalLoadFlow();
+  const { session, saveInitiatorUser, savePartnerUser, setInviteCode, setPendingInviteCode } = useMentalLoadFlow();
   const params = useLocalSearchParams<{ mode?: string }>();
   const role = params.mode === 'partner' ? 'partner' : 'initiator';
   const [displayName, setDisplayName] = useState('');
@@ -23,9 +25,28 @@ export default function RegistrierungScreen() {
       saveInitiatorUser(profile);
     }
 
+    const currentUid = auth.currentUser?.uid ?? user?.uid;
 
-    if (user?.uid) {
-      await saveMentalLoadAnswers(user.uid, {
+    if (currentUid) {
+      if (role === 'initiator') {
+        try {
+          const { inviteCode } = await createFamily({ uid: currentUid, familyName: `Familie ${profile.displayName}` });
+          setInviteCode(inviteCode);
+        } catch {
+          // Familie existiert evtl. bereits.
+        }
+      }
+
+      if (role === 'partner' && session.pendingInviteCode) {
+        try {
+          await joinFamilyByInviteCode({ uid: currentUid, inviteCode: session.pendingInviteCode });
+          setPendingInviteCode(null);
+        } catch {
+          setStatus('Der Einladungscode konnte nicht zugeordnet werden. Bitte prüfe den Code erneut.');
+        }
+      }
+
+      await saveMentalLoadAnswers(currentUid, {
         initiatorAnswers: session.anonymousQuizSession.initiatorAnswers,
         partnerAnswers: session.anonymousQuizSession.partnerAnswers,
         initiatorQuizCompleted: session.anonymousQuizSession.initiatorQuizCompleted,
@@ -60,7 +81,9 @@ export default function RegistrierungScreen() {
         <Text style={styles.text}>Du bist schon eingeloggt. Wir übernehmen dein bestehendes Konto und zeigen dir direkt dein Ergebnis.</Text>
         <Pressable
           style={styles.button}
-          onPress={() => { continueWithProfile({ id: user.uid, displayName: fallbackName, email: user.email ?? '' }); }}
+          onPress={() => {
+            continueWithProfile({ id: user.uid, displayName: fallbackName, email: user.email ?? '' });
+          }}
         >
           <Text style={styles.buttonText}>Weiter zum Ergebnis</Text>
         </Pressable>

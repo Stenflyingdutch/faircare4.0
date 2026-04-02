@@ -70,6 +70,7 @@ export type MentalLoadSession = {
   weeklyReviewAnswers: WeeklyReviewAnswer[];
   setupCompleted: boolean;
   needsQuizRefresh: boolean;
+  pendingInviteCode: string | null;
 };
 
 function generateInviteCode(length = 6) {
@@ -116,6 +117,7 @@ const defaultSession: MentalLoadSession = {
   weeklyReviewAnswers: [],
   setupCompleted: false,
   needsQuizRefresh: false,
+  pendingInviteCode: null,
 };
 
 type ContextValue = {
@@ -134,6 +136,8 @@ type ContextValue = {
   savePartnerUser: (profile: { id: string; displayName: string; email: string }) => void;
   claimInvite: (token: string) => boolean;
   getInviteCode: () => string;
+  setInviteCode: (code: string) => void;
+  setPendingInviteCode: (code: string | null) => void;
   setGoals: (goals: GoalOption[]) => void;
   setTaskOwner: (taskId: string, owner: TaskItem['owner']) => void;
   addTask: (title: string, owner?: TaskItem['owner']) => void;
@@ -300,6 +304,12 @@ export function MentalLoadFlowProvider({ children }: { children: ReactNode }) {
         return valid;
       },
       getInviteCode: () => session.pairOrHouseholdContext.inviteToken,
+      setInviteCode: (code) =>
+        setSession((prev) => ({
+          ...prev,
+          pairOrHouseholdContext: { ...prev.pairOrHouseholdContext, inviteToken: code, inviteStatus: 'pending' },
+        })),
+      setPendingInviteCode: (code) => setSession((prev) => ({ ...prev, pendingInviteCode: code })),
       setGoals: (goals) => setSession((prev) => ({ ...prev, goals, goalStatus: 'in_progress' })),
       setTaskOwner: (taskId, owner) =>
         setSession((prev) => ({
