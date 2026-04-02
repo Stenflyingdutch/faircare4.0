@@ -11,7 +11,7 @@ export default function QuizTeaserScreen() {
   const { session, initiatorResult, partnerResult } = useMentalLoadFlow();
 
   const result = mode === 'partner' ? partnerResult : initiatorResult;
-  const requiresRegistrationForDetails = mode === 'initiator' && !session.initiatorUser;
+  const requiresRegistrationForDetails = mode === 'initiator' ? !session.initiatorUser : !session.partnerUser;
 
   const handleContinue = async () => {
     if (user?.uid) {
