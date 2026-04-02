@@ -60,8 +60,8 @@ export default function StartseiteScreen() {
 
   const isInitiator = session.initiatorUser?.email?.toLowerCase() === user.email?.toLowerCase();
   const ownOwner = isInitiator ? 'initiator' : 'partner';
-  const initiatorName = session.initiatorUser?.displayName || 'Initiator';
-  const partnerName = session.partnerUser?.displayName || 'Partner';
+  const initiatorName = session.initiatorUser?.displayName || session.initiatorUser?.email || 'Initiator';
+  const partnerName = session.partnerUser?.displayName || session.partnerUser?.email || 'Partner';
   const ownTasks = useMemo(() => session.tasks.filter((task) => task.owner === ownOwner), [ownOwner, session.tasks]);
 
   const addNewTask = () => {
@@ -391,11 +391,11 @@ const styles = StyleSheet.create({
   dropdownMenu: { borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 10, overflow: 'hidden' },
   dropdownItem: { padding: 10, backgroundColor: '#fff' },
   notesInput: { borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 10, padding: 10, backgroundColor: '#fff', minHeight: 90 },
-  ownerRow: { gap: 10 },
-  ownerBubble: { width: '100%', borderWidth: 1, borderColor: '#93c5fd', backgroundColor: '#eff6ff', borderRadius: 999, paddingHorizontal: 14, paddingVertical: 10, alignItems: 'center' },
-  ownerBubbleActive: { backgroundColor: '#dbeafe', borderColor: '#2563eb' },
-  ownerBubbleText: { color: '#1d4ed8', fontWeight: '700' },
-  ownerBubbleTextActive: { color: '#1e3a8a' },
+  ownerRow: { flexDirection: 'row', gap: 10 },
+  ownerBubble: { flex: 1, borderWidth: 1, borderColor: '#cbd5e1', backgroundColor: '#e2e8f0', borderRadius: 999, paddingHorizontal: 14, paddingVertical: 10, alignItems: 'center' },
+  ownerBubbleActive: { backgroundColor: '#2563eb', borderColor: '#1d4ed8' },
+  ownerBubbleText: { color: '#475569', fontWeight: '700' },
+  ownerBubbleTextActive: { color: '#ffffff' },
   tabBar: { flexDirection: 'row', borderTopWidth: 1, borderColor: '#e2e8f0', backgroundColor: '#fff' },
   tabBarItem: { flex: 1, paddingVertical: 12 },
   tabBarText: { textAlign: 'center', color: '#475569', fontWeight: '600' },
