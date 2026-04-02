@@ -1,14 +1,17 @@
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 export default function QuizIntroScreen() {
+  const params = useLocalSearchParams<{ mode?: string }>();
+  const mode = params.mode === 'partner' ? 'partner' : 'initiator';
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Wer denkt an was im Alltag</Text>
       <Text style={styles.text}>Beantworte die Fragen aus deiner Sicht.</Text>
       <Text style={styles.text}>Es geht nicht darum, wer etwas macht.</Text>
       <Text style={styles.text}>Sondern wer daran denkt, plant und den Überblick behält.</Text>
-      <Pressable style={styles.cta} onPress={() => router.push('/quiz' as never)}>
+      <Pressable style={styles.cta} onPress={() => router.push({ pathname: '/quiz', params: { mode } } as never)}>
         <Text style={styles.ctaText}>Quiz starten</Text>
       </Pressable>
     </View>

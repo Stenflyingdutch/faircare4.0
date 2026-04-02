@@ -25,6 +25,7 @@ function RootNavigation() {
       <Stack.Screen name="registrieren" options={{ title: 'Ergebnis freischalten' }} />
       <Stack.Screen name="eigenes-ergebnis" options={{ title: 'Dein Ergebnis' }} />
       <Stack.Screen name="partner-einladen" options={{ title: 'Partner einladen' }} />
+      <Stack.Screen name="invite/[token]" options={{ title: 'Einladung' }} />
       <Stack.Screen name="gemeinsames-ergebnis" options={{ title: 'Gemeinsames Ergebnis' }} />
       <Stack.Screen name="ziele-auswahl" options={{ title: 'Ziele' }} />
       <Stack.Screen name="ziel-fokus" options={{ title: 'Ziel-Fokus' }} />

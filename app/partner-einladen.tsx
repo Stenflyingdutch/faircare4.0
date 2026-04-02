@@ -4,7 +4,7 @@ import { useMentalLoadFlow } from '@/contexts/MentalLoadFlowContext';
 
 export default function PartnerEinladenScreen() {
   const { session } = useMentalLoadFlow();
-  const inviteLink = `faircare://invite/${session.pairOrHouseholdContext.inviteToken}`;
+  const inviteLink = `https://faircare.app/invite/${session.pairOrHouseholdContext.inviteToken}`;
 
   const onShare = async () => {
     await Share.share({
@@ -19,12 +19,12 @@ export default function PartnerEinladenScreen() {
       <Text style={styles.text}>Sobald ihr beide das Quiz gemacht habt, könnt ihr euer gemeinsames Ergebnis sehen.</Text>
       <Text style={styles.code}>{inviteLink}</Text>
 
-      <Pressable style={styles.button} onPress={() => Alert.alert('Link kopiert', inviteLink)}><Text style={styles.buttonText}>Link kopieren</Text></Pressable>
+      <Pressable style={styles.button} onPress={() => Alert.alert('Link kopieren', `Invite-Link: ${inviteLink}`)}><Text style={styles.buttonText}>Link kopieren</Text></Pressable>
       <Pressable style={styles.button} onPress={onShare}><Text style={styles.buttonText}>Per WhatsApp teilen</Text></Pressable>
       <Pressable style={styles.button} onPress={onShare}><Text style={styles.buttonText}>Per E-Mail teilen</Text></Pressable>
 
-      <Pressable style={styles.secondary} onPress={() => router.push('/gemeinsames-ergebnis' as never)}>
-        <Text style={styles.secondaryText}>Gemeinsames Ergebnis öffnen</Text>
+      <Pressable style={styles.secondary} onPress={() => router.push({ pathname: '/invite/[token]', params: { token: session.pairOrHouseholdContext.inviteToken } } as never)}>
+        <Text style={styles.secondaryText}>Invite lokal testen</Text>
       </Pressable>
     </View>
   );
