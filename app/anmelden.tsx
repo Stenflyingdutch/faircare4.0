@@ -6,7 +6,7 @@ import { useMentalLoadFlow } from '@/contexts/MentalLoadFlowContext';
 import { getGermanFirebaseError } from '@/lib/firebaseError';
 
 export default function AnmeldenScreen() {
-  const { user, login, register } = useAuth();
+  const { user, login, completePasswordSetup } = useAuth();
   const { session, markPasswordSetupDone } = useMentalLoadFlow();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -29,20 +29,13 @@ export default function AnmeldenScreen() {
     }
 
     try {
-      setStatus('Konto wird vorbereitet ...');
-      await register(email.trim(), password, email.split('@')[0] || 'Nutzer');
+      setStatus('Kennwort wird gesetzt ...');
+      await completePasswordSetup(email.trim(), password, email.split('@')[0] || 'Nutzer');
       markPasswordSetupDone(email.trim());
-      setStatus('Kennwort gesetzt. Anmeldung läuft ...');
       await login(email.trim(), password);
       router.replace('/startseite' as never);
-    } catch (registerError) {
-      try {
-        await login(email.trim(), password);
-        markPasswordSetupDone(email.trim());
-        router.replace('/startseite' as never);
-      } catch (loginError) {
-        setStatus(`Fehler: ${getGermanFirebaseError(loginError ?? registerError)}`);
-      }
+    } catch (error) {
+      setStatus(`Fehler: ${getGermanFirebaseError(error)}`);
     }
   };
 
