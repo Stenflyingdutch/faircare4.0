@@ -1,11 +1,14 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useAuth } from '@/contexts/AuthContext';
+import { useMentalLoadFlow } from '@/contexts/MentalLoadFlowContext';
+import { saveMentalLoadAnswers } from '@/services/mentalLoadPersistenceService';
 
 export default function QuizTeaserScreen() {
   const params = useLocalSearchParams<{ mode?: string }>();
   const mode = params.mode === 'partner' ? 'partner' : 'initiator';
   const { user } = useAuth();
+  const { session } = useMentalLoadFlow();
 
   return (
     <View style={styles.container}>
@@ -21,11 +24,20 @@ export default function QuizTeaserScreen() {
       </Text>
       <Pressable
         style={styles.cta}
-        onPress={() =>
+        onPress={async () => {
+          if (user?.uid) {
+            await saveMentalLoadAnswers(user.uid, {
+              initiatorAnswers: session.anonymousQuizSession.initiatorAnswers,
+              partnerAnswers: session.anonymousQuizSession.partnerAnswers,
+              initiatorQuizCompleted: session.anonymousQuizSession.initiatorQuizCompleted,
+              partnerQuizCompleted: session.anonymousQuizSession.partnerQuizCompleted,
+            });
+          }
+
           router.push(
             (user ? { pathname: '/eigenes-ergebnis', params: { mode } } : { pathname: '/registrieren', params: { mode } }) as never,
-          )
-        }
+          );
+        }}
       >
         <Text style={styles.ctaText}>{user ? 'Ergebnis ansehen' : 'Ergebnis freischalten'}</Text>
       </Pressable>

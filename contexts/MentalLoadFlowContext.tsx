@@ -137,6 +137,7 @@ type ContextValue = {
   setGoals: (goals: GoalOption[]) => void;
   setTaskOwner: (taskId: string, owner: TaskItem['owner']) => void;
   addTask: (title: string, owner?: TaskItem['owner']) => void;
+  hydrateAnswers: (role: 'initiator' | 'partner', answers: MentalLoadAnswer[], quizCompleted?: boolean) => void;
   completeSetup: () => void;
   saveWeeklyReview: (payload: WeeklyReviewAnswer) => void;
 };
@@ -316,6 +317,19 @@ export function MentalLoadFlowProvider({ children }: { children: ReactNode }) {
               owner,
             },
           ],
+        })),
+      hydrateAnswers: (role, answers, quizCompleted = false) =>
+        setSession((prev) => ({
+          ...prev,
+          anonymousQuizSession: {
+            ...prev.anonymousQuizSession,
+            initiatorAnswers: role === 'initiator' ? answers : prev.anonymousQuizSession.initiatorAnswers,
+            partnerAnswers: role === 'partner' ? answers : prev.anonymousQuizSession.partnerAnswers,
+            initiatorQuizCompleted:
+              role === 'initiator' ? quizCompleted || prev.anonymousQuizSession.initiatorQuizCompleted : prev.anonymousQuizSession.initiatorQuizCompleted,
+            partnerQuizCompleted:
+              role === 'partner' ? quizCompleted || prev.anonymousQuizSession.partnerQuizCompleted : prev.anonymousQuizSession.partnerQuizCompleted,
+          },
         })),
       completeSetup: () => setSession((prev) => ({ ...prev, goalStatus: 'done', setupCompleted: true })),
       saveWeeklyReview: (payload) =>

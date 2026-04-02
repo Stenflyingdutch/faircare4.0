@@ -1,11 +1,13 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMentalLoadFlow } from '@/contexts/MentalLoadFlowContext';
+import { loadMentalLoadAnswers } from '@/services/mentalLoadPersistenceService';
 
 export default function EigenesErgebnisScreen() {
   const { user } = useAuth();
-  const { initiatorResult, partnerResult, session } = useMentalLoadFlow();
+  const { initiatorResult, partnerResult, session, hydrateAnswers } = useMentalLoadFlow();
   const params = useLocalSearchParams<{ mode?: string }>();
 
   const isInitiatorByEmail = session.initiatorUser?.email?.toLowerCase() === user?.email?.toLowerCase();
@@ -25,6 +27,26 @@ export default function EigenesErgebnisScreen() {
 
   const isPartner = inferredMode === 'partner';
   const result = isPartner ? partnerResult : initiatorResult;
+
+  useEffect(() => {
+    const shouldLoad =
+      Boolean(user?.uid) &&
+      session.anonymousQuizSession.initiatorAnswers.length === 0 &&
+      session.anonymousQuizSession.partnerAnswers.length === 0;
+
+    if (!shouldLoad || !user?.uid) {
+      return;
+    }
+
+    loadMentalLoadAnswers(user.uid).then((persisted) => {
+      if (persisted.initiatorAnswers.length > 0) {
+        hydrateAnswers('initiator', persisted.initiatorAnswers, persisted.initiatorQuizCompleted);
+      }
+      if (persisted.partnerAnswers.length > 0) {
+        hydrateAnswers('partner', persisted.partnerAnswers, persisted.partnerQuizCompleted);
+      }
+    });
+  }, [hydrateAnswers, session.anonymousQuizSession.initiatorAnswers.length, session.anonymousQuizSession.partnerAnswers.length, user?.uid]);
 
   return (
     <ScrollView contentContainerStyle={styles.container}>

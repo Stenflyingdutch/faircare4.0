@@ -3,11 +3,12 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMentalLoadFlow } from '@/contexts/MentalLoadFlowContext';
+import { saveMentalLoadAnswers } from '@/services/mentalLoadPersistenceService';
 import { getGermanFirebaseError } from '@/lib/firebaseError';
 
 export default function RegistrierungScreen() {
   const { user, register } = useAuth();
-  const { saveInitiatorUser, savePartnerUser } = useMentalLoadFlow();
+  const { session, saveInitiatorUser, savePartnerUser } = useMentalLoadFlow();
   const params = useLocalSearchParams<{ mode?: string }>();
   const role = params.mode === 'partner' ? 'partner' : 'initiator';
   const [displayName, setDisplayName] = useState('');
@@ -15,11 +16,21 @@ export default function RegistrierungScreen() {
   const [password, setPassword] = useState('');
   const [status, setStatus] = useState('');
 
-  const continueWithProfile = (profile: { id: string; displayName: string; email: string }) => {
+  const continueWithProfile = async (profile: { id: string; displayName: string; email: string }) => {
     if (role === 'partner') {
       savePartnerUser(profile);
     } else {
       saveInitiatorUser(profile);
+    }
+
+
+    if (user?.uid) {
+      await saveMentalLoadAnswers(user.uid, {
+        initiatorAnswers: session.anonymousQuizSession.initiatorAnswers,
+        partnerAnswers: session.anonymousQuizSession.partnerAnswers,
+        initiatorQuizCompleted: session.anonymousQuizSession.initiatorQuizCompleted,
+        partnerQuizCompleted: session.anonymousQuizSession.partnerQuizCompleted,
+      });
     }
 
     router.replace({ pathname: '/eigenes-ergebnis', params: { mode: role } } as never);
@@ -34,7 +45,7 @@ export default function RegistrierungScreen() {
     try {
       await register(email.trim(), password.trim(), displayName.trim());
       const profile = { id: email.trim().toLowerCase(), displayName: displayName.trim(), email: email.trim() };
-      continueWithProfile(profile);
+      await continueWithProfile(profile);
     } catch (error) {
       setStatus(`Fehler: ${getGermanFirebaseError(error)}`);
     }
@@ -49,7 +60,7 @@ export default function RegistrierungScreen() {
         <Text style={styles.text}>Du bist schon eingeloggt. Wir übernehmen dein bestehendes Konto und zeigen dir direkt dein Ergebnis.</Text>
         <Pressable
           style={styles.button}
-          onPress={() => continueWithProfile({ id: user.uid, displayName: fallbackName, email: user.email ?? '' })}
+          onPress={() => { continueWithProfile({ id: user.uid, displayName: fallbackName, email: user.email ?? '' }); }}
         >
           <Text style={styles.buttonText}>Weiter zum Ergebnis</Text>
         </Pressable>
