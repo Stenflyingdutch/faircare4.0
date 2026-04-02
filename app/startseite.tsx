@@ -1,5 +1,5 @@
 import { router, Redirect, useLocalSearchParams } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMentalLoadFlow } from '@/contexts/MentalLoadFlowContext';
@@ -58,6 +58,22 @@ export default function StartseiteScreen() {
     Boolean(session.partnerUser) &&
     session.anonymousQuizSession.partnerQuizCompleted;
 
+  useEffect(() => {
+    if (
+      setupStatus.gemeinsamesErgebnisVerfuegbar &&
+      !setupStatus.zieleFestgelegt &&
+      !setupStatus.setupAbgeschlossen
+    ) {
+      const timer = setTimeout(() => {
+        router.replace('/ziele-auswahl' as never);
+      }, 1500);
+
+      return () => clearTimeout(timer);
+    }
+
+    return undefined;
+  }, [setupStatus.gemeinsamesErgebnisVerfuegbar, setupStatus.zieleFestgelegt, setupStatus.setupAbgeschlossen]);
+
   const nextAction = () => {
     if (loginResumeMode) {
       return { label: 'Eigenes Ergebnis ansehen', route: '/eigenes-ergebnis' };
@@ -90,6 +106,19 @@ export default function StartseiteScreen() {
           </Pressable>
         </View>
 
+        {setupStatus.gemeinsamesErgebnisVerfuegbar && (
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Ergebnisse</Text>
+            <Pressable onPress={() => router.push('/eigenes-ergebnis' as never)}>
+              <Text style={styles.link}>Individuelles Ergebnis ansehen</Text>
+            </Pressable>
+            <Pressable onPress={() => router.push('/gemeinsames-ergebnis' as never)}>
+              <Text style={styles.link}>Gemeinsames Ergebnis ansehen</Text>
+            </Pressable>
+            {!setupStatus.zieleFestgelegt && <Text style={styles.text}>Weiterleitung zu Zielen läuft ...</Text>}
+          </View>
+        )}
+
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Dein aktueller Stand</Text>
           <Pressable onPress={() => router.push({ pathname: '/eigenes-ergebnis', params: { mode: 'partner' } } as never)}>
@@ -99,6 +128,12 @@ export default function StartseiteScreen() {
             <Text style={styles.link}>Gemeinsames Ergebnis ansehen</Text>
           </Pressable>
         </View>
+
+        {setupStatus.gemeinsamesErgebnisVerfuegbar && !setupStatus.zieleFestgelegt && (
+          <View style={styles.card}>
+            <Text style={styles.text}>Weiterleitung zu Zielen läuft ...</Text>
+          </View>
+        )}
 
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Vergleich</Text>
@@ -132,6 +167,19 @@ export default function StartseiteScreen() {
           </Pressable>
         </View>
 
+        {setupStatus.gemeinsamesErgebnisVerfuegbar && (
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Ergebnisse</Text>
+            <Pressable onPress={() => router.push('/eigenes-ergebnis' as never)}>
+              <Text style={styles.link}>Individuelles Ergebnis ansehen</Text>
+            </Pressable>
+            <Pressable onPress={() => router.push('/gemeinsames-ergebnis' as never)}>
+              <Text style={styles.link}>Gemeinsames Ergebnis ansehen</Text>
+            </Pressable>
+            {!setupStatus.zieleFestgelegt && <Text style={styles.text}>Weiterleitung zu Zielen läuft ...</Text>}
+          </View>
+        )}
+
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Dein aktueller Stand</Text>
           <Pressable onPress={() => router.push('/eigenes-ergebnis' as never)}>
@@ -143,6 +191,12 @@ export default function StartseiteScreen() {
             <Text style={styles.link}>Partner verknüpfen</Text>
           </Pressable>
         </View>
+
+        {setupStatus.gemeinsamesErgebnisVerfuegbar && !setupStatus.zieleFestgelegt && (
+          <View style={styles.card}>
+            <Text style={styles.text}>Weiterleitung zu Zielen läuft ...</Text>
+          </View>
+        )}
 
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Vergleich</Text>
