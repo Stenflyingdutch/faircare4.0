@@ -1,9 +1,11 @@
-import { router } from 'expo-router';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { router, useLocalSearchParams } from 'expo-router';
+import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useMentalLoadFlow } from '@/contexts/MentalLoadFlowContext';
 
 export default function EigenesErgebnisScreen() {
-  const { session } = useMentalLoadFlow();
+  const { session, submitPartnerResult } = useMentalLoadFlow();
+  const params = useLocalSearchParams<{ mode?: string }>();
+  const isPartner = params.mode === 'partner';
   const total = session.anonymousQuizSession.answers.length;
   const ich = session.anonymousQuizSession.answers.filter((item) => item.answer === 'ich').length;
   const value = total ? Math.round((ich / total) * 100) : 0;
@@ -18,9 +20,22 @@ export default function EigenesErgebnisScreen() {
         <View style={[styles.bar, { width: `${value}%` }]} />
       </View>
       <Text style={styles.label}>Dein Anteil am Mitdenken im Alltag: {value}%</Text>
-      <Pressable style={styles.cta} onPress={() => router.push('/partner-einladen' as never)}>
-        <Text style={styles.ctaText}>Partner einladen</Text>
-      </Pressable>
+      {isPartner ? (
+        <Pressable
+          style={styles.cta}
+          onPress={() => {
+            submitPartnerResult();
+            Alert.alert('Absenden', 'Dein Ergebnis wurde abgesendet. Eine Benachrichtigung wurde per E-Mail ausgelöst.');
+            router.replace('/startseite' as never);
+          }}
+        >
+          <Text style={styles.ctaText}>Absenden</Text>
+        </Pressable>
+      ) : (
+        <Pressable style={styles.cta} onPress={() => router.push('/partner-einladen' as never)}>
+          <Text style={styles.ctaText}>Partner einladen</Text>
+        </Pressable>
+      )}
     </View>
   );
 }

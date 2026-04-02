@@ -15,7 +15,7 @@ export default function RegistrierungScreen() {
   const [status, setStatus] = useState('');
 
   if (user) {
-    return <Redirect href={"/eigenes-ergebnis" as never} />;
+    return <Redirect href={'/startseite' as never} />;
   }
 
   const handleContinue = async () => {
@@ -27,7 +27,7 @@ export default function RegistrierungScreen() {
       } else {
         saveInitiatorUser({ id: email.trim().toLowerCase(), displayName: displayName.trim(), email: email.trim() });
       }
-      router.replace('/eigenes-ergebnis' as never);
+      router.replace({ pathname: '/eigenes-ergebnis', params: { mode: isPartner ? 'partner' : 'initiator' } } as never);
     } catch (error) {
       setStatus(`Fehler: ${getGermanFirebaseError(error)}`);
     }

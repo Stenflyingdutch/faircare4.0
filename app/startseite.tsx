@@ -15,13 +15,20 @@ export default function StartseiteScreen() {
       {session.notificationState.partnerCompleted && (
         <View style={styles.notification}>
           <Text style={styles.notificationTitle}>Dein Partner hat das Quiz abgeschlossen.</Text>
-          <Text style={styles.text}>Ihr könnt jetzt euer gemeinsames Ergebnis ansehen.</Text>
+          <Text style={styles.text}>Bitte beide über die Login-Seite mit Kennwort anmelden, dann ist die gemeinsame Bewertung sichtbar.</Text>
           <Pressable style={styles.inlineButton} onPress={() => router.push('/gemeinsames-ergebnis' as never)}>
             <Text style={styles.inlineButtonText}>Gemeinsames Ergebnis öffnen</Text>
           </Pressable>
         </View>
       )}
 
+
+      {session.notificationState.completionMailSent && (
+        <View style={styles.notification}>
+          <Text style={styles.notificationTitle}>E-Mail-Benachrichtigung wurde ausgelöst.</Text>
+          <Text style={styles.text}>Der Abschluss des Partner-Quiz wurde per E-Mail angekündigt.</Text>
+        </View>
+      )}
       <View style={styles.card}><Text style={styles.cardTitle}>Eure aktiven Ziele</Text><Text>{session.goals.join(' · ') || 'Noch keine Ziele'}</Text></View>
       <View style={styles.card}><Text style={styles.cardTitle}>Eure Aufgaben</Text><Text>{session.tasks.filter((item) => item.owner).length} Aufgaben mit Ownership</Text></View>
       <View style={styles.card}><Text style={styles.cardTitle}>Nächstes Weekly Review</Text><Text>{session.weeklyReview.upcomingAt ?? 'Noch nicht geplant'}</Text></View>

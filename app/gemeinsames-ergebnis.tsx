@@ -5,11 +5,11 @@ import { useMentalLoadFlow } from '@/contexts/MentalLoadFlowContext';
 export default function GemeinsamesErgebnisScreen() {
   const { session } = useMentalLoadFlow();
 
-  if (!session.notificationState.partnerCompleted) {
+  if (!session.notificationState.partnerCompleted || !session.passwordSetup.initiator || !session.passwordSetup.partner) {
     return (
       <View style={styles.container}>
         <Text style={styles.title}>Euer Mental Load im Alltag</Text>
-        <Text style={styles.text}>Gemeinsames Ergebnis wird freigeschaltet, sobald beide Quiz und Registrierung abgeschlossen haben.</Text>
+        <Text style={styles.text}>Gemeinsames Ergebnis wird freigeschaltet, sobald beide Quiz abgesendet und beide Kennwörter über die Login-Seite gesetzt haben.</Text>
       </View>
     );
   }

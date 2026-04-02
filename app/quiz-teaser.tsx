@@ -1,7 +1,10 @@
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 export default function QuizTeaserScreen() {
+  const params = useLocalSearchParams<{ mode?: string }>();
+  const mode = params.mode === 'partner' ? 'partner' : 'initiator';
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Deine erste Einschätzung ist fertig</Text>
@@ -10,7 +13,7 @@ export default function QuizTeaserScreen() {
         Mental Load bedeutet, an Dinge zu denken, voraus zu planen und den Überblick zu behalten. Auch dann, wenn nichts aktiv erledigt wird.
       </Text>
       <Text style={styles.text}>Für dein vollständiges Ergebnis registriere dich jetzt.</Text>
-      <Pressable style={styles.cta} onPress={() => router.push('/registrieren' as never)}>
+      <Pressable style={styles.cta} onPress={() => router.push({ pathname: '/registrieren', params: { mode } } as never)}>
         <Text style={styles.ctaText}>Ergebnis freischalten</Text>
       </Pressable>
     </View>

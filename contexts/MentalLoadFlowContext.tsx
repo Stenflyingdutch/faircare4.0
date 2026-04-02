@@ -45,7 +45,8 @@ export type MentalLoadSession = {
   tasks: TaskItem[];
   weeklyReview: { lastCompletedAt: string | null; upcomingAt: string | null };
   weeklyReviewAnswers: WeeklyReviewAnswer[];
-  notificationState: { partnerCompleted: boolean };
+  notificationState: { partnerCompleted: boolean; completionMailSent: boolean };
+  passwordSetup: { initiator: boolean; partner: boolean };
 };
 
 const defaultSession: MentalLoadSession = {
@@ -77,6 +78,11 @@ const defaultSession: MentalLoadSession = {
   weeklyReviewAnswers: [],
   notificationState: {
     partnerCompleted: false,
+    completionMailSent: false,
+  },
+  passwordSetup: {
+    initiator: false,
+    partner: false,
   },
 };
 
@@ -91,6 +97,8 @@ type ContextValue = {
   savePartnerUser: (profile: { id: string; displayName: string; email: string }) => void;
   claimInvite: () => void;
   completePartnerFlow: () => void;
+  submitPartnerResult: () => void;
+  markPasswordSetupDone: (email: string) => void;
   setGoals: (goals: GoalOption[]) => void;
   setTaskOwner: (taskId: string, owner: TaskItem['owner']) => void;
   completeSetup: () => void;
@@ -152,8 +160,27 @@ export function MentalLoadFlowProvider({ children }: { children: ReactNode }) {
         setSession((prev) => ({
           ...prev,
           pairOrHouseholdContext: { ...prev.pairOrHouseholdContext, inviteStatus: 'completed' },
-          notificationState: { partnerCompleted: true },
+          notificationState: { ...prev.notificationState, partnerCompleted: true },
         })),
+      submitPartnerResult: () =>
+        setSession((prev) => ({
+          ...prev,
+          pairOrHouseholdContext: { ...prev.pairOrHouseholdContext, inviteStatus: 'completed' },
+          notificationState: { ...prev.notificationState, partnerCompleted: true, completionMailSent: true },
+        })),
+      markPasswordSetupDone: (email) =>
+        setSession((prev) => {
+          const normalized = email.trim().toLowerCase();
+          const isInitiator = prev.initiatorUser?.email.toLowerCase() === normalized;
+          const isPartner = prev.partnerUser?.email.toLowerCase() === normalized;
+          return {
+            ...prev,
+            passwordSetup: {
+              initiator: prev.passwordSetup.initiator || Boolean(isInitiator),
+              partner: prev.passwordSetup.partner || Boolean(isPartner),
+            },
+          };
+        }),
       setGoals: (goals) => setSession((prev) => ({ ...prev, goals, goalStatus: 'in_progress' })),
       setTaskOwner: (taskId, owner) =>
         setSession((prev) => ({

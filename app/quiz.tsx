@@ -69,7 +69,7 @@ export default function QuizScreen() {
               if (isPartnerFlow) {
                 completePartnerFlow();
               }
-              router.replace('/quiz-teaser' as never);
+              router.replace({ pathname: '/quiz-teaser', params: { mode: isPartnerFlow ? 'partner' : 'initiator' } } as never);
               return;
             }
             setIndex((curr) => curr + 1);
