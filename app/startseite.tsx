@@ -53,6 +53,11 @@ export default function StartseiteScreen() {
 
   const loginResumeMode = allowMainFromLogin && !setupStatus.hatQuizAbgeschlossen;
 
+  const isPartnerReady =
+    !isInitiator &&
+    Boolean(session.partnerUser) &&
+    session.anonymousQuizSession.partnerQuizCompleted;
+
   const nextAction = () => {
     if (loginResumeMode) {
       return { label: 'Eigenes Ergebnis ansehen', route: '/eigenes-ergebnis' };
@@ -74,6 +79,38 @@ export default function StartseiteScreen() {
     }
     return { label: 'Zum Dashboard', route: '/startseite' };
   };
+
+  if (isPartnerReady && !setupStatus.setupAbgeschlossen) {
+    return (
+      <ScrollView contentContainerStyle={styles.container}>
+        <View style={styles.headerRow}>
+          <Text style={styles.title}>Startseite</Text>
+          <Pressable style={styles.iconButton} onPress={() => router.push('/einstellungen' as never)}>
+            <Text style={styles.iconText}>⚙️</Text>
+          </Pressable>
+        </View>
+
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Dein aktueller Stand</Text>
+          <Pressable onPress={() => router.push({ pathname: '/eigenes-ergebnis', params: { mode: 'partner' } } as never)}>
+            <Text style={styles.link}>Eigenes Ergebnis ansehen</Text>
+          </Pressable>
+          <Pressable onPress={() => router.push('/gemeinsames-ergebnis' as never)}>
+            <Text style={styles.link}>Gemeinsames Ergebnis ansehen</Text>
+          </Pressable>
+        </View>
+
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Vergleich</Text>
+          <Text style={styles.text}>
+            {setupStatus.gemeinsamesErgebnisVerfuegbar
+              ? 'Euer gemeinsames Ergebnis ist bereit.'
+              : 'Sobald beide Ergebnisse verfügbar sind, erscheint hier der Vergleich.'}
+          </Text>
+        </View>
+      </ScrollView>
+    );
+  }
 
   if (!setupStatus.setupAbgeschlossen) {
     const action = nextAction();

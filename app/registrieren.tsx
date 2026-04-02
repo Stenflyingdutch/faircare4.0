@@ -16,6 +16,7 @@ export default function RegistrierungScreen() {
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [passwordRepeat, setPasswordRepeat] = useState('');
   const [status, setStatus] = useState('');
 
   const continueWithProfile = async (profile: { id: string; displayName: string; email: string }) => {
@@ -64,6 +65,10 @@ export default function RegistrierungScreen() {
   const handleContinue = async () => {
     setStatus('Registrierung läuft ...');
     try {
+      if (password !== passwordRepeat) {
+        setStatus('Fehler: Die Kennwörter stimmen nicht überein.');
+        return;
+      }
       await register(email.trim(), password.trim(), displayName.trim());
       const profile = { id: email.trim().toLowerCase(), displayName: displayName.trim(), email: email.trim() };
       await continueWithProfile(profile);
@@ -105,6 +110,7 @@ export default function RegistrierungScreen() {
         autoCapitalize="none"
       />
       <TextInput placeholder="Kennwort" style={styles.input} secureTextEntry value={password} onChangeText={setPassword} />
+      <TextInput placeholder="Kennwort wiederholen" style={styles.input} secureTextEntry value={passwordRepeat} onChangeText={setPasswordRepeat} />
       <Pressable style={styles.button} onPress={handleContinue}>
         <Text style={styles.buttonText}>Weiter</Text>
       </Pressable>
