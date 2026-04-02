@@ -1,4 +1,4 @@
-import { router, Redirect } from 'expo-router';
+import { router, Redirect, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useAuth } from '@/contexts/AuthContext';
@@ -43,6 +43,7 @@ export default function StartseiteScreen() {
   } = useMentalLoadFlow();
 
   const [activeTab, setActiveTab] = useState<MainTab>('startseite');
+  const params = useLocalSearchParams<{ tab?: MainTab }>();
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [goalDraft, setGoalDraft] = useState('');
   const [editingGoalIndex, setEditingGoalIndex] = useState<number | null>(null);
@@ -117,6 +118,12 @@ export default function StartseiteScreen() {
     syncFamilyContext();
   }, [hydrateAnswers, saveInitiatorUser, savePartnerUser, setInviteCode, user?.uid, user?.email]);
 
+  useEffect(() => {
+    if (params.tab && TAB_ITEMS.some((item) => item.key === params.tab)) {
+      setActiveTab(params.tab);
+    }
+  }, [params.tab]);
+
   return (
     <View style={styles.mainContainer}>
       <View style={styles.mainContent}>
@@ -136,25 +143,25 @@ export default function StartseiteScreen() {
               </View>
             )}
 
-            <View style={styles.card}>
+            <View style={[styles.card, styles.highlightCard]}>
               <Text style={styles.cardTitle}>Eure aktiven Ziele</Text>
               {session.goals.slice(0, 3).map((goal) => (
                 <Text key={goal} style={styles.listItem}>• {goal}</Text>
               ))}
               {session.goals.length === 0 && <Text style={styles.text}>Noch keine aktiven Ziele.</Text>}
               <Pressable onPress={() => setActiveTab('ziele')}>
-                <Text style={styles.link}>Alle Ziele ansehen</Text>
+                <Text style={styles.link}>Zum Tab Ziele</Text>
               </Pressable>
             </View>
 
-            <View style={styles.card}>
+            <View style={[styles.card, styles.highlightCard]}>
               <Text style={styles.cardTitle}>Deine Aufgaben</Text>
               {ownTasks.slice(0, 5).map((task) => (
                 <Text key={task.id} style={styles.listItem}>• {task.title}</Text>
               ))}
               {ownTasks.length === 0 && <Text style={styles.text}>Dir sind aktuell keine Aufgaben zugeordnet.</Text>}
               <Pressable onPress={() => setActiveTab('aufgaben')}>
-                <Text style={styles.link}>Alle Aufgaben ansehen</Text>
+                <Text style={styles.link}>Zum Tab Aufgaben</Text>
               </Pressable>
             </View>
           </ScrollView>
@@ -253,9 +260,10 @@ const styles = StyleSheet.create({
   container: { padding: 24, gap: 12 },
   title: { fontSize: 30, fontWeight: '700' },
   card: { borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 10, padding: 12, gap: 8 },
+  highlightCard: { padding: 18, minHeight: 170, justifyContent: 'space-between' },
   cardTitle: { fontWeight: '700', fontSize: 17 },
   text: { color: '#334155' },
-  listItem: { color: '#0f172a' },
+  listItem: { color: '#0f172a', fontSize: 18, lineHeight: 26 },
   link: { color: '#1d4ed8', fontWeight: '700' },
   input: { borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 10, padding: 10, backgroundColor: '#fff' },
   primary: { backgroundColor: '#2563eb', borderRadius: 10, padding: 12 },

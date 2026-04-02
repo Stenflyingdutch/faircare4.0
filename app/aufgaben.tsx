@@ -4,6 +4,12 @@ import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-
 import { useMentalLoadFlow } from '@/contexts/MentalLoadFlowContext';
 
 const CATEGORIES = ['Alltag', 'Organisation', 'Gesundheit', 'Schule', 'Freizeit', 'Sonstiges'];
+const BOTTOM_TABS = [
+  { label: 'Start', tab: 'startseite' },
+  { label: 'Ziele', tab: 'ziele' },
+  { label: 'Aufgaben', tab: 'aufgaben' },
+  { label: 'Review', tab: 'review' },
+] as const;
 
 export default function AufgabenScreen() {
   const { session, setTaskOwner, addTask, updateTask, removeTask } = useMentalLoadFlow();
@@ -31,7 +37,8 @@ export default function AufgabenScreen() {
   }, [pendingNewTask, session.tasks]);
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <View style={styles.screen}>
+      <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>Wer übernimmt was</Text>
       <Text style={styles.text}>Jede Aufgabe hat eine klare verantwortliche Person.</Text>
 
@@ -143,11 +150,21 @@ export default function AufgabenScreen() {
       <Pressable style={styles.button} onPress={() => router.push('/aufgaben-bestaetigung' as never)}>
         <Text style={styles.buttonText}>Speichern</Text>
       </Pressable>
-    </ScrollView>
+      </ScrollView>
+
+      <View style={styles.tabBar}>
+        {BOTTOM_TABS.map((item) => (
+          <Pressable key={item.tab} style={styles.tabBarItem} onPress={() => router.push({ pathname: '/startseite', params: { tab: item.tab } } as never)}>
+            <Text style={[styles.tabBarText, item.tab === 'aufgaben' && styles.tabBarTextActive]}>{item.label}</Text>
+          </Pressable>
+        ))}
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  screen: { flex: 1 },
   container: { flexGrow: 1, padding: 24, gap: 10 },
   title: { fontSize: 28, fontWeight: '700' },
   text: { color: '#334155' },
@@ -161,9 +178,9 @@ const styles = StyleSheet.create({
   editButton: { borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6 },
   editButtonText: { fontWeight: '600', color: '#1e293b' },
   row: { flexDirection: 'row', gap: 10, flexWrap: 'wrap' },
-  ownerButton: { borderRadius: 999, borderWidth: 1, borderColor: '#bfdbfe', backgroundColor: '#eff6ff', paddingHorizontal: 12, paddingVertical: 6 },
+  ownerButton: { borderRadius: 999, borderWidth: 1, borderColor: '#bfdbfe', backgroundColor: '#eff6ff', paddingHorizontal: 18, paddingVertical: 10, minWidth: 82, alignItems: 'center' },
   ownerButtonActive: { borderColor: '#2563eb', backgroundColor: '#dbeafe' },
-  ownerButtonText: { color: '#1d4ed8', fontWeight: '600' },
+  ownerButtonText: { color: '#1d4ed8', fontWeight: '700', fontSize: 20 },
   ownerButtonTextActive: { color: '#1e3a8a' },
   editorCard: { borderWidth: 1, borderColor: '#93c5fd', borderRadius: 10, padding: 12, gap: 8, backgroundColor: '#eff6ff' },
   cardTitle: { fontWeight: '700' },
@@ -182,4 +199,8 @@ const styles = StyleSheet.create({
   deleteText: { color: '#fff', textAlign: 'center', fontWeight: '700' },
   button: { marginTop: 'auto', backgroundColor: '#2563eb', borderRadius: 10, padding: 12 },
   buttonText: { color: '#fff', textAlign: 'center', fontWeight: '700' },
+  tabBar: { flexDirection: 'row', borderTopWidth: 1, borderColor: '#e2e8f0', backgroundColor: '#fff' },
+  tabBarItem: { flex: 1, paddingVertical: 12 },
+  tabBarText: { textAlign: 'center', color: '#475569', fontWeight: '600' },
+  tabBarTextActive: { color: '#1d4ed8' },
 });
