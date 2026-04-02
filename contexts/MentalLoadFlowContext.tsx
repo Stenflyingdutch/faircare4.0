@@ -149,7 +149,7 @@ type ContextValue = {
   setTaskOwner: (taskId: string, owner: TaskItem['owner']) => void;
   updateTask: (taskId: string, patch: Partial<Omit<TaskItem, 'id'>>) => void;
   removeTask: (taskId: string) => void;
-  addTask: (title: string, owner?: TaskItem['owner'], category?: string) => void;
+  addTask: (title: string, owner?: TaskItem['owner'], category?: string, details?: string) => void;
   hydrateAnswers: (role: 'initiator' | 'partner', answers: MentalLoadAnswer[], quizCompleted?: boolean) => void;
   completeSetup: () => void;
   saveWeeklyReview: (payload: WeeklyReviewAnswer) => void;
@@ -344,7 +344,7 @@ export function MentalLoadFlowProvider({ children }: { children: ReactNode }) {
           ...prev,
           tasks: prev.tasks.filter((task) => task.id !== taskId),
         })),
-      addTask: (title, owner = null, category = 'Allgemein') =>
+      addTask: (title, owner = null, category = 'Allgemein', details = '') =>
         setSession((prev) => ({
           ...prev,
           tasks: [
@@ -355,7 +355,7 @@ export function MentalLoadFlowProvider({ children }: { children: ReactNode }) {
               owner,
               status: owner ? 'aktiv' : 'offen',
               goal: prev.goals[0] ?? null,
-              details: '',
+              details,
               category,
             },
           ],

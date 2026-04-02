@@ -24,6 +24,7 @@ const GOAL_STATUS: Record<string, string> = {
   'Routinen stabil und planbar': 'pausiert',
   'Bessere Vorbereitung im Alltag': 'aktiv',
 };
+const TASK_CATEGORIES = ['Alltag', 'Organisation', 'Gesundheit', 'Schule', 'Freizeit', 'Sonstiges'];
 
 export default function StartseiteScreen() {
   const { user } = useAuth();
@@ -31,7 +32,6 @@ export default function StartseiteScreen() {
     session,
     addTask,
     updateTask,
-    removeTask,
     setupStatus,
     setInviteCode,
     saveInitiatorUser,
@@ -45,8 +45,13 @@ export default function StartseiteScreen() {
   const [activeTab, setActiveTab] = useState<MainTab>('startseite');
   const params = useLocalSearchParams<{ tab?: MainTab }>();
   const [newTaskTitle, setNewTaskTitle] = useState('');
+  const [newTaskCategory, setNewTaskCategory] = useState('Alltag');
+  const [newTaskDetails, setNewTaskDetails] = useState('');
   const [goalDraft, setGoalDraft] = useState('');
   const [editingGoalIndex, setEditingGoalIndex] = useState<number | null>(null);
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const [showNewCategoryMenu, setShowNewCategoryMenu] = useState(false);
+  const [showEditCategoryMenuFor, setShowEditCategoryMenuFor] = useState<string | null>(null);
 
   if (!user) {
     return <Redirect href={'/' as never} />;
@@ -63,8 +68,11 @@ export default function StartseiteScreen() {
     if (!clean) {
       return;
     }
-    addTask(clean, ownOwner);
+    addTask(clean, ownOwner, newTaskCategory, newTaskDetails);
     setNewTaskTitle('');
+    setNewTaskDetails('');
+    setNewTaskCategory('Alltag');
+    setShowNewCategoryMenu(false);
   };
 
   useEffect(() => {
@@ -131,8 +139,8 @@ export default function StartseiteScreen() {
           <ScrollView contentContainerStyle={styles.container}>
             <View style={styles.headerRow}>
               <Text style={styles.title}>Startseite</Text>
-              <Pressable style={styles.iconButton} onPress={() => router.push('/einstellungen' as never)}>
-                <Text style={styles.iconText}>⚙️</Text>
+              <Pressable style={styles.settingsLinkButton} onPress={() => router.push('/einstellungen' as never)}>
+                <Text style={styles.settingsLinkText}>Einstellungen</Text>
               </Pressable>
             </View>
 
@@ -145,9 +153,13 @@ export default function StartseiteScreen() {
 
             <View style={[styles.card, styles.highlightCard]}>
               <Text style={styles.cardTitle}>Eure aktiven Ziele</Text>
-              {session.goals.slice(0, 3).map((goal) => (
-                <Text key={goal} style={styles.listItem}>• {goal}</Text>
-              ))}
+              <View style={styles.stack}>
+                {session.goals.slice(0, 3).map((goal) => (
+                  <View key={goal} style={styles.miniCard}>
+                    <Text style={styles.miniCardTitle}>{goal}</Text>
+                  </View>
+                ))}
+              </View>
               {session.goals.length === 0 && <Text style={styles.text}>Noch keine aktiven Ziele.</Text>}
               <Pressable onPress={() => setActiveTab('ziele')}>
                 <Text style={styles.link}>Zum Tab Ziele</Text>
@@ -156,9 +168,13 @@ export default function StartseiteScreen() {
 
             <View style={[styles.card, styles.highlightCard]}>
               <Text style={styles.cardTitle}>Deine Aufgaben</Text>
-              {ownTasks.slice(0, 5).map((task) => (
-                <Text key={task.id} style={styles.listItem}>• {task.title}</Text>
-              ))}
+              <View style={styles.stack}>
+                {ownTasks.slice(0, 5).map((task) => (
+                  <View key={task.id} style={styles.miniCard}>
+                    <Text style={styles.miniCardTitle}>{task.title}</Text>
+                  </View>
+                ))}
+              </View>
               {ownTasks.length === 0 && <Text style={styles.text}>Dir sind aktuell keine Aufgaben zugeordnet.</Text>}
               <Pressable onPress={() => setActiveTab('aufgaben')}>
                 <Text style={styles.link}>Zum Tab Aufgaben</Text>
@@ -209,25 +225,80 @@ export default function StartseiteScreen() {
         {activeTab === 'aufgaben' && (
           <ScrollView contentContainerStyle={styles.container}>
             <Text style={styles.title}>Aufgaben</Text>
-            {session.tasks.map((task) => (
-              <View key={task.id} style={styles.card}>
-                <Text style={styles.cardTitle}>{task.title}</Text>
-                <Text style={styles.text}>Verantwortlich: {task.owner === 'initiator' ? initiatorName : task.owner === 'partner' ? partnerName : 'Nicht zugeordnet'}</Text>
-                <Text style={styles.text}>Kategorie: {task.category}</Text>
-                <View style={styles.row}>
-                  <Pressable style={styles.secondary} onPress={() => updateTask(task.id, { status: 'aktiv' })}><Text>Aktiv</Text></Pressable>
-                  <Pressable style={styles.secondary} onPress={() => updateTask(task.id, { status: 'pausiert' })}><Text>Pausieren</Text></Pressable>
-                  <Pressable style={styles.secondary} onPress={() => removeTask(task.id)}><Text>Löschen</Text></Pressable>
-                </View>
-              </View>
-            ))}
+
             <View style={styles.card}>
               <Text style={styles.cardTitle}>Neue Aufgabe hinzufügen</Text>
-              <TextInput placeholder="Aufgabe eingeben" value={newTaskTitle} onChangeText={setNewTaskTitle} style={styles.input} />
+              <TextInput placeholder="Titel" value={newTaskTitle} onChangeText={setNewTaskTitle} style={styles.input} />
+              <Pressable style={styles.dropdownButton} onPress={() => setShowNewCategoryMenu((prev) => !prev)}>
+                <Text style={styles.text}>Kategorie: {newTaskCategory}</Text>
+                <Text style={styles.text}>▾</Text>
+              </Pressable>
+              {showNewCategoryMenu && (
+                <View style={styles.dropdownMenu}>
+                  {TASK_CATEGORIES.map((category) => (
+                    <Pressable key={category} style={styles.dropdownItem} onPress={() => { setNewTaskCategory(category); setShowNewCategoryMenu(false); }}>
+                      <Text>{category}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              )}
+              <TextInput
+                placeholder="Notiz"
+                value={newTaskDetails}
+                onChangeText={setNewTaskDetails}
+                style={styles.notesInput}
+                multiline
+                textAlignVertical="top"
+              />
               <Pressable style={styles.primary} onPress={addNewTask}>
                 <Text style={styles.primaryText}>Neue Aufgabe hinzufügen</Text>
               </Pressable>
             </View>
+
+            {session.tasks.map((task) => {
+              const isEditing = editingTaskId === task.id;
+              if (isEditing) {
+                return (
+                  <View key={task.id} style={styles.card}>
+                    <TextInput value={task.title} onChangeText={(value) => updateTask(task.id, { title: value })} style={styles.input} />
+                    <Pressable style={styles.dropdownButton} onPress={() => setShowEditCategoryMenuFor(showEditCategoryMenuFor === task.id ? null : task.id)}>
+                      <Text style={styles.text}>Kategorie: {task.category}</Text>
+                      <Text style={styles.text}>▾</Text>
+                    </Pressable>
+                    {showEditCategoryMenuFor === task.id && (
+                      <View style={styles.dropdownMenu}>
+                        {TASK_CATEGORIES.map((category) => (
+                          <Pressable key={category} style={styles.dropdownItem} onPress={() => { updateTask(task.id, { category }); setShowEditCategoryMenuFor(null); }}>
+                            <Text>{category}</Text>
+                          </Pressable>
+                        ))}
+                      </View>
+                    )}
+                    <TextInput
+                      value={task.details}
+                      onChangeText={(value) => updateTask(task.id, { details: value })}
+                      style={styles.notesInput}
+                      multiline
+                      textAlignVertical="top"
+                      placeholder="Notiz"
+                    />
+                    <Pressable style={styles.secondary} onPress={() => setEditingTaskId(null)}>
+                      <Text style={styles.secondaryText}>Fertig</Text>
+                    </Pressable>
+                  </View>
+                );
+              }
+
+              const notePreview = task.details.trim().split(/\s+/).slice(0, 6).join(' ');
+              return (
+                <Pressable key={task.id} style={styles.card} onPress={() => setEditingTaskId(task.id)}>
+                  <Text style={styles.cardTitle}>{task.title}</Text>
+                  <Text style={styles.text}>Kategorie: {task.category}</Text>
+                  {notePreview.length > 0 && <Text style={styles.text}>Notiz: {notePreview}{task.details.trim().split(/\s+/).length > 6 ? '…' : ''}</Text>}
+                  <Text style={styles.text}>Verantwortlich: {task.owner === 'initiator' ? initiatorName : task.owner === 'partner' ? partnerName : 'Nicht zugeordnet'}</Text>
+                </Pressable>
+              );
+            })}
           </ScrollView>
         )}
 
@@ -271,9 +342,16 @@ const styles = StyleSheet.create({
   secondary: { borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 10, padding: 12 },
   secondaryText: { textAlign: 'center', fontWeight: '600' },
   row: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
+  stack: { gap: 8 },
+  miniCard: { borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 8, padding: 12, backgroundColor: '#fff' },
+  miniCardTitle: { fontSize: 17, fontWeight: '600', color: '#0f172a' },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  iconButton: { borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 999, width: 38, height: 38, alignItems: 'center', justifyContent: 'center' },
-  iconText: { fontSize: 18 },
+  settingsLinkButton: { borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8 },
+  settingsLinkText: { color: '#1d4ed8', fontWeight: '700' },
+  dropdownButton: { borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 10, padding: 10, backgroundColor: '#fff', flexDirection: 'row', justifyContent: 'space-between' },
+  dropdownMenu: { borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 10, overflow: 'hidden' },
+  dropdownItem: { padding: 10, backgroundColor: '#fff' },
+  notesInput: { borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 10, padding: 10, backgroundColor: '#fff', minHeight: 90 },
   tabBar: { flexDirection: 'row', borderTopWidth: 1, borderColor: '#e2e8f0', backgroundColor: '#fff' },
   tabBarItem: { flex: 1, paddingVertical: 12 },
   tabBarText: { textAlign: 'center', color: '#475569', fontWeight: '600' },
