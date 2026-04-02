@@ -32,6 +32,7 @@ export default function StartseiteScreen() {
     session,
     addTask,
     updateTask,
+    setTaskOwner,
     setupStatus,
     setInviteCode,
     saveInitiatorUser,
@@ -282,6 +283,20 @@ export default function StartseiteScreen() {
                       textAlignVertical="top"
                       placeholder="Notiz"
                     />
+                    <View style={styles.ownerRow}>
+                      <Pressable
+                        style={[styles.ownerBubble, task.owner === 'initiator' && styles.ownerBubbleActive]}
+                        onPress={() => setTaskOwner(task.id, 'initiator')}
+                      >
+                        <Text style={[styles.ownerBubbleText, task.owner === 'initiator' && styles.ownerBubbleTextActive]}>{initiatorName}</Text>
+                      </Pressable>
+                      <Pressable
+                        style={[styles.ownerBubble, task.owner === 'partner' && styles.ownerBubbleActive]}
+                        onPress={() => setTaskOwner(task.id, 'partner')}
+                      >
+                        <Text style={[styles.ownerBubbleText, task.owner === 'partner' && styles.ownerBubbleTextActive]}>{partnerName}</Text>
+                      </Pressable>
+                    </View>
                     <Pressable style={styles.secondary} onPress={() => setEditingTaskId(null)}>
                       <Text style={styles.secondaryText}>Fertig</Text>
                     </Pressable>
@@ -295,7 +310,26 @@ export default function StartseiteScreen() {
                   <Text style={styles.cardTitle}>{task.title}</Text>
                   <Text style={styles.text}>Kategorie: {task.category}</Text>
                   {notePreview.length > 0 && <Text style={styles.text}>Notiz: {notePreview}{task.details.trim().split(/\s+/).length > 6 ? '…' : ''}</Text>}
-                  <Text style={styles.text}>Verantwortlich: {task.owner === 'initiator' ? initiatorName : task.owner === 'partner' ? partnerName : 'Nicht zugeordnet'}</Text>
+                  <View style={styles.ownerRow}>
+                    <Pressable
+                      style={[styles.ownerBubble, task.owner === 'initiator' && styles.ownerBubbleActive]}
+                      onPress={(event) => {
+                        event.stopPropagation();
+                        setTaskOwner(task.id, 'initiator');
+                      }}
+                    >
+                      <Text style={[styles.ownerBubbleText, task.owner === 'initiator' && styles.ownerBubbleTextActive]}>{initiatorName}</Text>
+                    </Pressable>
+                    <Pressable
+                      style={[styles.ownerBubble, task.owner === 'partner' && styles.ownerBubbleActive]}
+                      onPress={(event) => {
+                        event.stopPropagation();
+                        setTaskOwner(task.id, 'partner');
+                      }}
+                    >
+                      <Text style={[styles.ownerBubbleText, task.owner === 'partner' && styles.ownerBubbleTextActive]}>{partnerName}</Text>
+                    </Pressable>
+                  </View>
                 </Pressable>
               );
             })}
@@ -352,6 +386,11 @@ const styles = StyleSheet.create({
   dropdownMenu: { borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 10, overflow: 'hidden' },
   dropdownItem: { padding: 10, backgroundColor: '#fff' },
   notesInput: { borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 10, padding: 10, backgroundColor: '#fff', minHeight: 90 },
+  ownerRow: { flexDirection: 'row', gap: 10, flexWrap: 'wrap' },
+  ownerBubble: { borderWidth: 1, borderColor: '#93c5fd', backgroundColor: '#eff6ff', borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8 },
+  ownerBubbleActive: { backgroundColor: '#dbeafe', borderColor: '#2563eb' },
+  ownerBubbleText: { color: '#1d4ed8', fontWeight: '700' },
+  ownerBubbleTextActive: { color: '#1e3a8a' },
   tabBar: { flexDirection: 'row', borderTopWidth: 1, borderColor: '#e2e8f0', backgroundColor: '#fff' },
   tabBarItem: { flex: 1, paddingVertical: 12 },
   tabBarText: { textAlign: 'center', color: '#475569', fontWeight: '600' },
