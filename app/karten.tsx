@@ -3,10 +3,13 @@ import { useFocusEffect } from '@react-navigation/native';
 import { doc, getDoc } from 'firebase/firestore';
 import { useCallback, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Badge } from '@/components/ui/Badge';
+import { PremiumCard } from '@/components/ui/PremiumCard';
 import { useAuth } from '@/contexts/AuthContext';
 import { db } from '@/lib/firebase';
 import { getGermanFirebaseError } from '@/lib/firebaseError';
 import { collectionNames, getCurrentUserFamilyId } from '@/services/familyService';
+import { theme } from '@/lib/theme';
 import {
   createTaskCardForFamily,
   ensureInitialTaskCardsForCurrentFamily,
@@ -63,7 +66,7 @@ export default function KartenScreen() {
     }
 
     setIsLoading(true);
-    setStatus('Karten werden geladen ...');
+    setStatus('Wir laden eure Vereinbarungen ...');
 
     try {
       const currentFamilyId = await getCurrentUserFamilyId(user.uid);
@@ -71,7 +74,7 @@ export default function KartenScreen() {
 
       if (!currentFamilyId) {
         setCards([]);
-        setStatus('Kein Familienkonto gefunden.');
+        setStatus('Noch keine Familie verbunden.');
         return;
       }
 
@@ -98,7 +101,7 @@ export default function KartenScreen() {
       );
       setOwnerNames(Object.fromEntries(ownerEntries));
 
-      setStatus(loadedCards.length > 0 ? 'Karten erfolgreich geladen.' : 'Noch keine Karten vorhanden.');
+      setStatus(loadedCards.length > 0 ? 'Vereinbarungen sind bereit.' : 'Noch keine Aufgaben festgelegt\nIhr könnt gemeinsam starten');
     } catch (error) {
       setStatus(`Fehler beim Laden: ${getGermanFirebaseError(error)}`);
     } finally {
@@ -263,7 +266,7 @@ export default function KartenScreen() {
     }
 
     if (!newCard.title.trim()) {
-      setStatus('Bitte einen Titel für die neue Aufgabe eingeben.');
+      setStatus('Bitte einen Titel für die Vereinbarung eingeben.');
       return;
     }
 
@@ -276,7 +279,7 @@ export default function KartenScreen() {
         suggestedOwner: user.uid,
       });
       setNewCard({ title: '', description: '', category: '' });
-      setStatus('Neue Aufgabe hinzugefügt.');
+      setStatus('Neue Vereinbarung hinzugefügt.');
       await loadCards();
     } catch (error) {
       setStatus(`Fehler beim Hinzufügen: ${getGermanFirebaseError(error)}`);
@@ -299,7 +302,7 @@ export default function KartenScreen() {
             assignedTo: user.uid,
             suggestedOwner: user.uid,
           });
-          setStatus('Karte dir zugewiesen.');
+          setStatus('Verantwortung übernehmen: dir zugeordnet.');
         } else if (actionType === 'take_partner') {
           if (!partnerId) {
             setStatus('Kein Partnerprofil gefunden.');
@@ -311,17 +314,17 @@ export default function KartenScreen() {
             assignedTo: partnerId,
             suggestedOwner: partnerId,
           });
-          setStatus('Karte Partner zugewiesen.');
+          setStatus('Verantwortung übernehmen: Partner zugeordnet.');
         } else if (actionType === 'discard') {
           await updateTaskCardOwnership(card.taskCardId, {
             ownershipStatus: 'discarded',
             assignedTo: null,
             relevanceStatus: 'discarded',
           });
-          setStatus('Karte als nicht relevant markiert.');
+          setStatus('Nicht relevant für uns.');
         } else {
           await restoreTaskCard(card.taskCardId);
-          setStatus('Karte für Neuverhandlung wieder aktiviert.');
+          setStatus('Später besprechen: wieder aktiv.');
         }
 
         await loadCards();
@@ -349,14 +352,14 @@ export default function KartenScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>Karten</Text>
-      <Text style={styles.subtitle}>Mental Load und Care-Arbeit für 0–2 Jahre – pro Verantwortung eine Karte.</Text>
+      <Text style={styles.title}>Vereinbarungen</Text>
+      <Text style={styles.subtitle}>Diese Karten zeigen Verantwortung als gemeinsame Vereinbarung.</Text>
       <Text style={styles.fairnessInfo}>{fairnessMessage}</Text>
 
       <Text style={styles.statusText}>{status}</Text>
       {isLoading && <Text style={styles.infoText}>Lade ...</Text>}
       <Pressable style={[styles.actionButton, styles.meButton]} onPress={() => setShowNewCardForm((prev) => !prev)}>
-        <Text style={styles.actionText}>{showNewCardForm ? 'Neue Karte schließen' : 'Neue Karte anlegen'}</Text>
+        <Text style={styles.actionText}>{showNewCardForm ? 'Formular schließen' : 'Neue Vereinbarung'}</Text>
       </Pressable>
       <View style={styles.filterRow}>
         <Pressable
@@ -388,7 +391,7 @@ export default function KartenScreen() {
           <Text style={styles.categoryTitle}>{category}</Text>
 
           {categoryCards.map((card) => (
-            <View key={card.taskCardId} style={styles.card}>
+            <PremiumCard key={card.taskCardId} style={styles.card}>
               <Pressable style={styles.cardHeader} onPress={() => toggleCardExpanded(card.taskCardId)}>
                 <Text style={styles.cardTitle}>{card.title}</Text>
               </Pressable>
@@ -463,6 +466,11 @@ export default function KartenScreen() {
                 ) : (
                   <>
                     <Text style={styles.cardDescription}>{card.description}</Text>
+                    <Text style={styles.cardSubtitle}>Diese Aufgabe umfasst Denken und Machen</Text>
+                    <Badge
+                      label={`Verantwortung: ${card.suggestedOwner ? ownerNames[card.suggestedOwner] ?? card.suggestedOwner : 'Offen'}`}
+                      tone="accent"
+                    />
 
                   <Text style={styles.listTitle}>Daran denken</Text>
                   {card.thinkingTasks?.map((task) => (
@@ -492,7 +500,7 @@ export default function KartenScreen() {
                   </View>
                   <View style={styles.actionsRow}>
                     <Pressable style={[styles.actionButton, styles.discardButton]} onPress={() => handleAction(card, 'discard')}>
-                      <Text style={styles.actionText}>Nicht relevant</Text>
+                      <Text style={styles.actionText}>Nicht relevant für uns</Text>
                     </Pressable>
                     <Pressable style={[styles.actionButton, styles.partnerButton]} onPress={() => startEditingCard(card)}>
                       <Text style={styles.actionText}>Bearbeiten</Text>
@@ -500,18 +508,18 @@ export default function KartenScreen() {
                   </View>
                 </>
                 ))}
-            </View>
+            </PremiumCard>
           ))}
         </View>
       ))}
 
       {showNewCardForm && (
         <View style={styles.categorySection}>
-          <Text style={styles.categoryTitle}>Neue Aufgabe hinzufügen</Text>
+          <Text style={styles.categoryTitle}>Neue Vereinbarung hinzufügen</Text>
           <Text style={styles.fieldLabel}>Titel</Text>
           <TextInput
             style={styles.input}
-            placeholder="Titel der Aufgabe"
+            placeholder="Titel der Vereinbarung"
             value={newCard.title}
             onChangeText={(value) => setNewCard((prev) => ({ ...prev, title: value }))}
           />
@@ -547,7 +555,7 @@ export default function KartenScreen() {
             onChangeText={(value) => setNewCard((prev) => ({ ...prev, description: value }))}
           />
           <Pressable style={[styles.actionButton, styles.meButton]} onPress={addNewCard}>
-            <Text style={styles.actionText}>Neu hinzufügen</Text>
+            <Text style={styles.actionText}>Vereinbarung speichern</Text>
           </Pressable>
         </View>
       )}
@@ -565,7 +573,7 @@ export default function KartenScreen() {
                 <Text style={styles.cardTitle}>{card.title}</Text>
                 <Text style={styles.cardDescription}>{card.description}</Text>
                 <Pressable style={[styles.actionButton, styles.meButton]} onPress={() => handleAction(card, 'reopen')}>
-                  <Text style={styles.actionText}>Wieder aktivieren</Text>
+                  <Text style={styles.actionText}>Später besprechen</Text>
                 </Pressable>
               </View>
             ))}
@@ -597,17 +605,17 @@ const styles = StyleSheet.create({
   container: {
     padding: 16,
     gap: 12,
-    backgroundColor: '#f8fafc',
+    backgroundColor: theme.colors.background,
   },
   title: {
-    fontSize: 30,
+    fontSize: theme.typography.title,
     fontWeight: '700',
     textAlign: 'center',
-    color: '#0f172a',
+    color: theme.colors.textPrimary,
   },
   subtitle: {
     textAlign: 'center',
-    color: '#334155',
+    color: theme.colors.textSecondary,
   },
   fairnessInfo: {
     textAlign: 'center',
@@ -615,12 +623,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   statusText: {
-    color: '#1e293b',
+    color: theme.colors.textSecondary,
     textAlign: 'center',
     fontWeight: '600',
   },
   infoText: {
-    color: '#475569',
+    color: theme.colors.textSecondary,
   },
   filterRow: {
     flexDirection: 'row',
@@ -628,7 +636,7 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   filterButton: {
-    borderRadius: 999,
+    borderRadius: theme.radius.pill,
     borderWidth: 1,
     borderColor: '#93c5fd',
     paddingHorizontal: 10,
@@ -640,7 +648,7 @@ const styles = StyleSheet.create({
     borderColor: '#1d4ed8',
   },
   filterButtonText: {
-    color: '#0f172a',
+    color: theme.colors.textPrimary,
     fontWeight: '600',
   },
   filterButtonTextActive: {
@@ -649,19 +657,19 @@ const styles = StyleSheet.create({
   categorySection: {
     borderWidth: 1,
     borderColor: '#cbd5e1',
-    borderRadius: 10,
+    borderRadius: theme.radius.md,
     padding: 10,
     gap: 8,
     backgroundColor: '#f1f5f9',
   },
   categoryTitle: {
-    fontSize: 20,
+    fontSize: theme.typography.subtitle,
     fontWeight: '700',
-    color: '#0f172a',
+    color: theme.colors.textPrimary,
   },
   card: {
-    backgroundColor: '#ffffff',
-    borderRadius: 10,
+    backgroundColor: theme.colors.card,
+    borderRadius: theme.radius.md,
     borderWidth: 1,
     borderColor: '#e2e8f0',
     padding: 12,
@@ -674,8 +682,8 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   checkinCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 8,
+    backgroundColor: theme.colors.card,
+    borderRadius: theme.radius.md,
     borderWidth: 1,
     borderColor: '#dbeafe',
     padding: 10,
@@ -684,21 +692,27 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontSize: 17,
     fontWeight: '700',
-    color: '#0f172a',
+    color: theme.colors.textPrimary,
   },
   cardDescription: {
-    color: '#334155',
+    color: theme.colors.textSecondary,
   },
   listTitle: {
     marginTop: 6,
     fontWeight: '700',
-    color: '#1e293b',
+    color: theme.colors.textSecondary,
   },
   listItem: {
-    color: '#334155',
+    color: theme.colors.textSecondary,
+  },
+  cardSubtitle: {
+    color: theme.colors.textSecondary,
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: 4,
   },
   metaText: {
-    color: '#334155',
+    color: theme.colors.textSecondary,
     fontWeight: '600',
   },
   actionsRow: {
@@ -708,18 +722,18 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     flex: 1,
-    borderRadius: 8,
+    borderRadius: theme.radius.md,
     paddingVertical: 8,
     paddingHorizontal: 10,
   },
   meButton: {
-    backgroundColor: '#0f766e',
+    backgroundColor: theme.colors.primary,
   },
   partnerButton: {
-    backgroundColor: '#4f46e5',
+    backgroundColor: '#7FA2F2',
   },
   discardButton: {
-    backgroundColor: '#dc2626',
+    backgroundColor: theme.colors.conflict,
   },
   actionText: {
     color: '#ffffff',
@@ -730,22 +744,22 @@ const styles = StyleSheet.create({
   input: {
     borderWidth: 1,
     borderColor: '#cbd5e1',
-    borderRadius: 8,
+    borderRadius: theme.radius.md,
     paddingHorizontal: 10,
     paddingVertical: 8,
-    backgroundColor: '#ffffff',
-    color: '#0f172a',
+    backgroundColor: theme.colors.card,
+    color: theme.colors.textPrimary,
   },
   fieldLabel: {
-    color: '#0f172a',
+    color: theme.colors.textPrimary,
     fontWeight: '700',
     marginTop: 2,
   },
   dropdownMenu: {
     borderWidth: 1,
     borderColor: '#cbd5e1',
-    borderRadius: 8,
-    backgroundColor: '#ffffff',
+    borderRadius: theme.radius.md,
+    backgroundColor: theme.colors.card,
     overflow: 'hidden',
   },
   dropdownItem: {

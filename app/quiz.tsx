@@ -1,6 +1,8 @@
 import { Redirect, router } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Animated, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SoftButton } from '@/components/ui/SoftButton';
+import { SectionBlock } from '@/components/ui/SectionBlock';
 import { useAuth } from '@/contexts/AuthContext';
 import { getGermanFirebaseError } from '@/lib/firebaseError';
 import {
@@ -10,6 +12,7 @@ import {
   type QuizOption,
   type SatisfactionOption,
 } from '@/lib/quizQuestions';
+import { theme } from '@/lib/theme';
 import { loadQuizAnswersByUser, saveQuizAnswer, type StoredQuizAnswer } from '@/services/quizService';
 
 type AnswerFields = Pick<StoredQuizAnswer, 'doesIt' | 'thinksAboutIt' | 'satisfaction'>;
@@ -32,6 +35,7 @@ export default function QuizScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const completionOpacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     const init = async () => {
@@ -50,7 +54,8 @@ export default function QuizScreen() {
         const nextIndex = QUIZ_QUESTIONS.findIndex((quizQuestion) => !isAnswerComplete(result.answers.get(quizQuestion.id)));
         setActiveIndex(nextIndex >= 0 ? nextIndex : 0);
       } catch (initError) {
-        setError(getGermanFirebaseError(initError));
+        setError('Verbindung gerade nicht verfügbar. Bitte später erneut versuchen.');
+        console.error(getGermanFirebaseError(initError));
       } finally {
         setIsLoading(false);
       }
@@ -66,6 +71,14 @@ export default function QuizScreen() {
     () => QUIZ_QUESTIONS.every((quizQuestion) => isAnswerComplete(answerMap.get(quizQuestion.id))),
     [answerMap],
   );
+
+  useEffect(() => {
+    Animated.timing(completionOpacity, {
+      toValue: isComplete ? 1 : 0,
+      duration: 260,
+      useNativeDriver: true,
+    }).start();
+  }, [completionOpacity, isComplete]);
 
   if (!user) {
     return <Redirect href="/anmelden" />;
@@ -103,107 +116,104 @@ export default function QuizScreen() {
         return copy;
       });
     } catch (saveError) {
-      setError(getGermanFirebaseError(saveError));
+      setError('Verbindung gerade nicht verfügbar. Bitte später erneut versuchen.');
+      console.error(getGermanFirebaseError(saveError));
     } finally {
       setIsSaving(false);
     }
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Fairness-Quiz</Text>
+    <ScrollView contentContainerStyle={styles.container}>
+      <Text style={styles.title}>Gemeinsam anschauen</Text>
+      <Text style={styles.subtitle}>Es geht um dein Gefühl, nicht um Perfektion.</Text>
 
       {isLoading ? (
         <Text style={styles.info}>Lade Antworten ...</Text>
       ) : (
         <>
-          <Text style={styles.progress}>
-            Frage {activeIndex + 1} von {QUIZ_QUESTIONS.length}
-          </Text>
+          <Text style={styles.progress}>Frage {activeIndex + 1} von {QUIZ_QUESTIONS.length}</Text>
           <View style={styles.progressBarContainer}>
             <View style={[styles.progressBarFill, { width: `${((activeIndex + 1) / QUIZ_QUESTIONS.length) * 100}%` }]} />
           </View>
 
-          <Text style={styles.category}>{question.category}</Text>
-          <Text style={styles.question}>{question.question}</Text>
-
-          <View style={styles.partBlock}>
-            <Text style={styles.partTitle}>Dran denken</Text>
-            <Text style={styles.examplesText}>
-              Beispiele: {question.thinkingActions.join(' · ')}
-            </Text>
-            <View style={styles.optionGrid}>
-              {QUIZ_OPTIONS.map((option) => {
-                const selected = currentAnswer?.thinksAboutIt === option;
-                return (
-                  <Pressable
-                    key={`thinksAboutIt-${option}`}
-                    style={[styles.optionButton, selected && styles.optionButtonSelected]}
-                    onPress={() => onSelect('thinksAboutIt', option)}
-                    disabled={isSaving}
-                  >
-                    <Text style={[styles.optionText, selected && styles.optionTextSelected]}>{option}</Text>
-                  </Pressable>
-                );
-              })}
+          <SectionBlock title={question.category} subtitle={question.question}>
+            <View style={styles.partBlock}>
+              <Text style={styles.partTitle}>Denken</Text>
+              <Text style={styles.examplesText}>Beispiele: {question.thinkingActions.join(' · ')}</Text>
+              <View style={styles.optionGrid}>
+                {QUIZ_OPTIONS.map((option) => {
+                  const selected = currentAnswer?.thinksAboutIt === option;
+                  return (
+                    <SoftButton
+                      key={`thinks-${option}`}
+                      label={option}
+                      variant={selected ? 'primary' : 'neutral'}
+                      onPress={() => onSelect('thinksAboutIt', option)}
+                      disabled={isSaving}
+                      style={styles.optionButton}
+                    />
+                  );
+                })}
+              </View>
             </View>
-          </View>
 
-          <View style={styles.partBlock}>
-            <Text style={styles.partTitle}>Machen</Text>
-            <Text style={styles.examplesText}>
-              Beispiele: {question.doingActions.join(' · ')}
-            </Text>
-            <View style={styles.optionGrid}>
-              {QUIZ_OPTIONS.map((option) => {
-                const selected = currentAnswer?.doesIt === option;
-                return (
-                  <Pressable
-                    key={`doesIt-${option}`}
-                    style={[styles.optionButton, selected && styles.optionButtonSelected]}
-                    onPress={() => onSelect('doesIt', option)}
-                    disabled={isSaving}
-                  >
-                    <Text style={[styles.optionText, selected && styles.optionTextSelected]}>{option}</Text>
-                  </Pressable>
-                );
-              })}
+            <View style={styles.partBlock}>
+              <Text style={styles.partTitle}>Machen</Text>
+              <Text style={styles.examplesText}>Beispiele: {question.doingActions.join(' · ')}</Text>
+              <View style={styles.optionGrid}>
+                {QUIZ_OPTIONS.map((option) => {
+                  const selected = currentAnswer?.doesIt === option;
+                  return (
+                    <SoftButton
+                      key={`does-${option}`}
+                      label={option}
+                      variant={selected ? 'primary' : 'neutral'}
+                      onPress={() => onSelect('doesIt', option)}
+                      disabled={isSaving}
+                      style={styles.optionButton}
+                    />
+                  );
+                })}
+              </View>
             </View>
-          </View>
 
-          <View style={styles.partBlock}>
-            <Text style={styles.partTitle}>Wie zufrieden bist du</Text>
-            <View style={styles.optionGrid}>
-              {SATISFACTION_OPTIONS.map((option) => {
-                const selected = currentAnswer?.satisfaction === option;
-                return (
-                  <Pressable
-                    key={`satisfaction-${option}`}
-                    style={[styles.optionButton, selected && styles.optionButtonSelected]}
-                    onPress={() => onSelect('satisfaction', option)}
-                    disabled={isSaving}
-                  >
-                    <Text style={[styles.smileyText, selected && styles.optionTextSelected]}>{SATISFACTION_LABELS[option]}</Text>
-                  </Pressable>
-                );
-              })}
+            <View style={styles.partBlock}>
+              <Text style={styles.partTitle}>Wie fühlt sich das an?</Text>
+              <View style={styles.optionGrid}>
+                {SATISFACTION_OPTIONS.map((option) => {
+                  const selected = currentAnswer?.satisfaction === option;
+                  return (
+                    <SoftButton
+                      key={`satisfaction-${option}`}
+                      label={SATISFACTION_LABELS[option]}
+                      variant={selected ? 'secondary' : 'neutral'}
+                      onPress={() => onSelect('satisfaction', option)}
+                      disabled={isSaving}
+                      style={styles.optionButton}
+                    />
+                  );
+                })}
+              </View>
             </View>
-          </View>
+          </SectionBlock>
 
-          {error && <Text style={styles.errorText}>Fehler: {error}</Text>}
+          {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-          {isComplete && <Text style={styles.doneText}>Alle Fragen wurden beantwortet.</Text>}
+          <Animated.View style={{ opacity: completionOpacity }}>
+            {isComplete ? <Text style={styles.doneText}>Alles ist eingetragen. Ihr könnt später weiter sprechen.</Text> : null}
+          </Animated.View>
 
           <View style={styles.navigationRow}>
-            <Pressable
-              style={[styles.navButton, activeIndex === 0 && styles.navButtonDisabled]}
+            <SoftButton
+              label="Zurück"
+              variant="neutral"
               onPress={() => setActiveIndex((current) => Math.max(0, current - 1))}
               disabled={activeIndex === 0 || isSaving}
-            >
-              <Text style={styles.navText}>Zurück</Text>
-            </Pressable>
-            <Pressable
-              style={[styles.navButton, (!isCurrentComplete || isSaving) && styles.navButtonDisabled]}
+              style={styles.navButton}
+            />
+            <SoftButton
+              label={isLastQuestion ? 'Fertig' : 'Weiter'}
               onPress={() => {
                 if (isLastQuestion) {
                   router.replace('/startseite');
@@ -212,143 +222,94 @@ export default function QuizScreen() {
                 setActiveIndex((current) => Math.min(QUIZ_QUESTIONS.length - 1, current + 1));
               }}
               disabled={!isCurrentComplete || isSaving}
-            >
-              <Text style={styles.navText}>{isLastQuestion ? 'Fertig' : 'Weiter'}</Text>
-            </Pressable>
+              style={styles.navButton}
+            />
           </View>
         </>
       )}
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    paddingHorizontal: 20,
-    paddingTop: 24,
-    paddingBottom: 32,
-    backgroundColor: '#fff',
-    gap: 10,
+    padding: theme.spacing.lg,
+    backgroundColor: theme.colors.background,
+    gap: theme.spacing.md,
   },
   title: {
-    fontSize: 28,
+    fontSize: theme.typography.title,
     fontWeight: '700',
+    color: theme.colors.textPrimary,
     textAlign: 'center',
+  },
+  subtitle: {
+    color: theme.colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: theme.typography.lineHeightBody,
   },
   info: {
     textAlign: 'center',
-    marginTop: 30,
+    color: theme.colors.textSecondary,
+    marginTop: theme.spacing.xl,
   },
   progress: {
     textAlign: 'center',
+    color: theme.colors.textSecondary,
     fontWeight: '600',
   },
   progressBarContainer: {
     height: 8,
-    backgroundColor: '#e5e7eb',
-    borderRadius: 999,
+    backgroundColor: theme.colors.neutral,
+    borderRadius: theme.radius.pill,
     overflow: 'hidden',
   },
   progressBarFill: {
     height: 8,
-    backgroundColor: '#2563eb',
-  },
-  category: {
-    marginTop: 8,
-    textAlign: 'center',
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  question: {
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  definitionBlock: {
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    borderRadius: 10,
-    padding: 10,
-    gap: 4,
-    backgroundColor: '#f8fafc',
-  },
-  definitionTitle: {
-    fontWeight: '700',
-  },
-  helperText: {
-    fontSize: 14,
-    color: '#334155',
-  },
-  examplesText: {
-    fontSize: 14,
-    color: '#334155',
-    fontStyle: 'italic',
+    backgroundColor: theme.colors.primary,
   },
   partBlock: {
+    borderRadius: theme.radius.md,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
-    borderRadius: 10,
-    padding: 10,
-    gap: 8,
+    borderColor: '#EDF0F5',
+    padding: theme.spacing.md,
+    gap: theme.spacing.sm,
+    backgroundColor: '#FCFCFD',
   },
   partTitle: {
-    fontWeight: '700',
+    color: theme.colors.textPrimary,
+    fontWeight: '600',
+    fontSize: 16,
+  },
+  examplesText: {
+    color: theme.colors.textSecondary,
+    fontSize: 14,
+    lineHeight: 20,
   },
   optionGrid: {
     flexDirection: 'row',
-    gap: 8,
     flexWrap: 'wrap',
+    gap: theme.spacing.sm,
   },
   optionButton: {
-    borderWidth: 1,
-    borderColor: '#cbd5e1',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    backgroundColor: '#f8fafc',
+    minWidth: 100,
   },
-  optionButtonSelected: {
-    backgroundColor: '#2563eb',
-    borderColor: '#1d4ed8',
+  errorText: {
+    color: '#A35B56',
+    textAlign: 'center',
+    lineHeight: 22,
   },
-  optionText: {
-    color: '#111827',
+  doneText: {
+    color: '#397A58',
+    textAlign: 'center',
     fontWeight: '600',
-  },
-  optionTextSelected: {
-    color: '#fff',
-  },
-  smileyText: {
-    fontSize: 16,
-    lineHeight: 20,
-    fontWeight: '600',
+    lineHeight: 22,
   },
   navigationRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 8,
+    gap: theme.spacing.sm,
   },
   navButton: {
-    backgroundColor: '#2563eb',
-    borderRadius: 8,
-    minWidth: 120,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  navButtonDisabled: {
-    backgroundColor: '#94a3b8',
-  },
-  navText: {
-    color: '#fff',
-    fontWeight: '700',
-  },
-  errorText: {
-    color: '#b91c1c',
-    fontWeight: '600',
-  },
-  doneText: {
-    color: '#047857',
-    fontWeight: '700',
-    textAlign: 'center',
+    flex: 1,
   },
 });

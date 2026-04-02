@@ -1,23 +1,27 @@
 import { Redirect } from 'expo-router';
 import { FirebaseError } from 'firebase/app';
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Badge } from '@/components/ui/Badge';
+import { PremiumCard } from '@/components/ui/PremiumCard';
+import { SectionBlock } from '@/components/ui/SectionBlock';
+import { SoftButton } from '@/components/ui/SoftButton';
 import { useAuth } from '@/contexts/AuthContext';
-import { getGermanFirebaseError } from '@/lib/firebaseError';
 import { buildAndStoreFamilyResults } from '@/services/resultsService';
+import { theme } from '@/lib/theme';
 
 type ErgebnisState = Awaited<ReturnType<typeof buildAndStoreFamilyResults>>;
 
 function getConflictStyle(score: number) {
   if (score >= 1.7) {
-    return { label: 'Hoch', color: '#b91c1c', backgroundColor: '#fee2e2' };
+    return { label: 'Hier gibt es Unterschiede', tone: 'conflict' as const };
   }
 
   if (score >= 1.1) {
-    return { label: 'Mittel', color: '#b45309', backgroundColor: '#fef3c7' };
+    return { label: 'Gemeinsam anschauen', tone: 'default' as const };
   }
 
-  return { label: 'Niedrig', color: '#166534', backgroundColor: '#dcfce7' };
+  return { label: 'Wirkt stimmig', tone: 'accent' as const };
 }
 
 export default function ErgebnisseScreen() {
@@ -39,11 +43,9 @@ export default function ErgebnisseScreen() {
       setResult(nextResult);
     } catch (loadError) {
       if (loadError instanceof FirebaseError && loadError.code === 'invalid-argument') {
-        setError(
-          'Ergebnisse konnten nicht berechnet werden. Bitte prüfe, ob dein Partnerprofil zur Familie hinzugefügt wurde und beide Elternteile das Quiz ausgefüllt haben.',
-        );
+        setError('Für diese Ansicht fehlen noch Antworten von beiden Elternteilen.');
       } else {
-        setError(getGermanFirebaseError(loadError));
+        setError('Verbindung gerade nicht verfügbar. Bitte später erneut versuchen.');
       }
     } finally {
       setIsLoading(false);
@@ -75,150 +77,95 @@ export default function ErgebnisseScreen() {
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>Ergebnisse</Text>
-      <Text style={styles.subtitle}>Vergleich der Quiz-Antworten beider Elternteile mit Fokus auf Zufriedenheit.</Text>
+      <Text style={styles.subtitle}>Die Verteilung wirkt aktuell unausgeglichen oder stimmig – wir schauen gemeinsam darauf.</Text>
 
-      <Pressable style={styles.reloadButton} onPress={loadResults}>
-        <Text style={styles.reloadButtonText}>Neu berechnen</Text>
-      </Pressable>
+      <SoftButton label="Gemeinsam anschauen" onPress={loadResults} />
 
-      {isLoading && <Text style={styles.infoText}>Ergebnisse werden berechnet ...</Text>}
-      {error && <Text style={styles.errorText}>Fehler: {error}</Text>}
+      {isLoading ? <Text style={styles.infoText}>Ergebnisse werden berechnet ...</Text> : null}
+      {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-      {!isLoading && result && (
+      {!isLoading && result ? (
         <>
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Scores je Elternteil</Text>
+          <SectionBlock title="Scores je Elternteil">
             {scoreCards.map((card) => (
-              <View key={card.userId} style={styles.card}>
+              <PremiumCard key={card.userId}>
                 <Text style={styles.cardTitle}>{card.displayName}</Text>
                 <Text style={styles.cardText}>Task Load: {card.taskLoadScore}%</Text>
                 <Text style={styles.cardText}>Mental Load: {card.mentalLoadScore}%</Text>
                 <Text style={styles.cardText}>Zufriedenheit: {card.satisfactionScore}%</Text>
-              </View>
+              </PremiumCard>
             ))}
-          </View>
+          </SectionBlock>
 
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Größte Konflikte (nach Priorität)</Text>
+          <SectionBlock title="Gute Gesprächsstarts" subtitle="Diese Punkte können helfen, ruhig weiterzusprechen.">
             {result.conflictQuestions.slice(0, 8).map((item) => {
               const conflictState = getConflictStyle(item.conflictScore);
-              const isHighMismatch = item.mismatchScore >= 1.5;
-              const isLowSatisfaction = item.dissatisfactionScore >= 0.75;
-
               return (
-                <View
-                  key={item.questionId}
-                  style={[styles.listItem, { backgroundColor: conflictState.backgroundColor, borderColor: conflictState.color }]}
-                >
-                  <Text style={[styles.listPrimary, { color: conflictState.color }]}>[{conflictState.label}] {item.category}</Text>
-                  <Text style={styles.listQuestion}>{item.prompt}</Text>
-                  <Text style={styles.listSecondary}>Konflikt-Score: {item.conflictScore}</Text>
-                  <Text style={styles.listSecondary}>Mismatch-Score: {item.mismatchScore}</Text>
-                  <Text style={styles.listSecondary}>Unzufriedenheits-Score: {item.dissatisfactionScore}</Text>
-                  {isHighMismatch && <Text style={styles.warningText}>⚠️ Hoher Mismatch bei Aufgaben-/Mental-Load</Text>}
-                  {isLowSatisfaction && <Text style={styles.warningText}>⚠️ Niedrige Zufriedenheit</Text>}
-                </View>
+                <PremiumCard key={item.questionId} style={styles.conflictCard}>
+                  <Badge label={conflictState.label} tone={conflictState.tone} />
+                  <Text style={styles.cardTitle}>{item.category}</Text>
+                  <Text style={styles.cardText}>{item.prompt}</Text>
+                  <Text style={styles.metaText}>Konflikt-Score: {item.conflictScore}</Text>
+                </PremiumCard>
               );
             })}
-          </View>
+          </SectionBlock>
 
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Top Konflikt-Kategorien</Text>
+          <SectionBlock title="Top Kategorien" subtitle="Hier lohnt sich ein späteres Check-in.">
             {result.topConflictCategories.map((category) => (
-              <View key={category.category} style={styles.listItem}>
-                <Text style={styles.listPrimary}>{category.category}</Text>
-                <Text style={styles.listSecondary}>Durchschnittlicher Konflikt-Score: {category.score}</Text>
-              </View>
+              <PremiumCard key={category.category}>
+                <Text style={styles.cardTitle}>{category.category}</Text>
+                <Text style={styles.metaText}>Durchschnitt: {category.score}</Text>
+              </PremiumCard>
             ))}
-          </View>
+          </SectionBlock>
         </>
-      )}
+      ) : null}
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    padding: 20,
-    gap: 12,
-    backgroundColor: '#f8fafc',
+    padding: theme.spacing.lg,
+    backgroundColor: theme.colors.background,
+    gap: theme.spacing.lg,
   },
   title: {
-    fontSize: 30,
+    fontSize: theme.typography.title,
     fontWeight: '700',
     textAlign: 'center',
-    color: '#0f172a',
+    color: theme.colors.textPrimary,
   },
   subtitle: {
     textAlign: 'center',
-    color: '#334155',
-  },
-  reloadButton: {
-    backgroundColor: '#2563eb',
-    borderRadius: 8,
-    paddingVertical: 10,
-  },
-  reloadButtonText: {
-    color: '#ffffff',
-    textAlign: 'center',
-    fontWeight: '700',
+    lineHeight: theme.typography.lineHeightBody,
+    color: theme.colors.textSecondary,
   },
   infoText: {
     textAlign: 'center',
-    color: '#1d4ed8',
+    color: theme.colors.textSecondary,
   },
   errorText: {
-    color: '#b91c1c',
-    fontWeight: '600',
+    textAlign: 'center',
+    color: '#A35B56',
+    lineHeight: 22,
   },
-  section: {
-    backgroundColor: '#ffffff',
-    borderRadius: 10,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    gap: 8,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#0f172a',
-  },
-  card: {
-    borderWidth: 1,
-    borderColor: '#dbeafe',
-    borderRadius: 8,
-    backgroundColor: '#eff6ff',
-    padding: 10,
+  conflictCard: {
+    borderColor: '#F8E3E0',
   },
   cardTitle: {
-    fontWeight: '700',
+    fontSize: 17,
+    fontWeight: '600',
+    color: theme.colors.textPrimary,
     marginBottom: 4,
   },
   cardText: {
-    color: '#1e293b',
+    color: theme.colors.textSecondary,
+    lineHeight: 22,
   },
-  listItem: {
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    borderRadius: 8,
-    padding: 10,
-    backgroundColor: '#ffffff',
-    gap: 2,
-  },
-  listPrimary: {
-    fontWeight: '700',
-    color: '#0f172a',
-  },
-  listQuestion: {
-    color: '#0f172a',
-    fontWeight: '500',
-  },
-  listSecondary: {
-    color: '#475569',
-  },
-  warningText: {
-    color: '#b91c1c',
-    fontWeight: '600',
+  metaText: {
+    color: theme.colors.textSecondary,
+    marginTop: 4,
   },
 });

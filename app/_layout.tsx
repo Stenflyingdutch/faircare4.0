@@ -1,5 +1,6 @@
 import { Stack } from 'expo-router';
 import { ActivityIndicator, View } from 'react-native';
+import { theme } from '@/lib/theme';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 
 function RootNavigation() {
@@ -7,8 +8,8 @@ function RootNavigation() {
 
   if (loading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" />
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.colors.background }}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
       </View>
     );
   }
@@ -17,6 +18,10 @@ function RootNavigation() {
     <Stack
       screenOptions={{
         headerTitleAlign: 'center',
+        headerStyle: { backgroundColor: theme.colors.background },
+        headerShadowVisible: false,
+        headerTitleStyle: { color: theme.colors.textPrimary, fontSize: 18, fontWeight: '600' },
+        contentStyle: { backgroundColor: theme.colors.background },
       }}
     >
       <Stack.Screen name="index" options={{ headerShown: false }} />
