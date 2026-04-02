@@ -52,6 +52,7 @@ export default function StartseiteScreen() {
   };
 
   const loginResumeMode = allowMainFromLogin && !setupStatus.hatQuizAbgeschlossen;
+  const hasAccountProgress = allowMainFromLogin || setupStatus.istRegistriert || Boolean(session.initiatorUser) || Boolean(session.partnerUser);
 
   const isPartnerReady =
     !isInitiator &&
@@ -79,7 +80,7 @@ export default function StartseiteScreen() {
       return { label: 'Eigenes Ergebnis ansehen', route: '/eigenes-ergebnis' };
     }
     if (!setupStatus.hatQuizAbgeschlossen) {
-      return { label: 'Quiz starten', route: '/quiz-intro' };
+      return hasAccountProgress ? { label: 'Eigenes Ergebnis ansehen', route: '/eigenes-ergebnis' } : { label: 'Quiz starten', route: '/quiz-intro' };
     }
     if (!setupStatus.istRegistriert) {
       return { label: 'Registrierung abschließen', route: '/registrieren' };
@@ -159,13 +160,24 @@ export default function StartseiteScreen() {
           </Pressable>
         </View>
 
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Euer Setup läuft</Text>
-          <Text style={styles.text}>Tabs werden aktiviert, sobald gemeinsames Ergebnis, Ziele und Aufgaben abgeschlossen sind.</Text>
-          <Pressable style={styles.primary} onPress={() => router.push(action.route as never)}>
-            <Text style={styles.primaryText}>{action.label}</Text>
-          </Pressable>
-        </View>
+        {!hasAccountProgress && (
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Euer Setup läuft</Text>
+            <Text style={styles.text}>Tabs werden aktiviert, sobald gemeinsames Ergebnis, Ziele und Aufgaben abgeschlossen sind.</Text>
+            <Pressable style={styles.primary} onPress={() => router.push(action.route as never)}>
+              <Text style={styles.primaryText}>{action.label}</Text>
+            </Pressable>
+          </View>
+        )}
+
+        {hasAccountProgress && (
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Nächster Schritt</Text>
+            <Pressable style={styles.primary} onPress={() => router.push(action.route as never)}>
+              <Text style={styles.primaryText}>{action.label}</Text>
+            </Pressable>
+          </View>
+        )}
 
         {setupStatus.gemeinsamesErgebnisVerfuegbar && (
           <View style={styles.card}>

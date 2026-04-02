@@ -65,10 +65,20 @@ export default function RegistrierungScreen() {
   const handleContinue = async () => {
     setStatus('Registrierung läuft ...');
     try {
-      if (password !== passwordRepeat) {
+      if (!user?.email && password !== passwordRepeat) {
         setStatus('Fehler: Die Kennwörter stimmen nicht überein.');
         return;
       }
+      if (user?.email) {
+        const profile = {
+          id: user.uid,
+          displayName: displayName.trim() || user.displayName || user.email.split('@')[0],
+          email: user.email,
+        };
+        await continueWithProfile(profile);
+        return;
+      }
+
       await register(email.trim(), password.trim(), displayName.trim());
       const profile = { id: email.trim().toLowerCase(), displayName: displayName.trim(), email: email.trim() };
       await continueWithProfile(profile);
@@ -77,30 +87,14 @@ export default function RegistrierungScreen() {
     }
   };
 
-  if (user?.email) {
-    const fallbackName = user.displayName?.trim() || user.email.split('@')[0] || 'Nutzer';
-
-    return (
-      <View style={styles.container}>
-        <Text style={styles.title}>Konto bereits vorhanden</Text>
-        <Text style={styles.text}>Du bist schon eingeloggt. Wir übernehmen dein bestehendes Konto und zeigen dir direkt dein Ergebnis.</Text>
-        <Pressable
-          style={styles.button}
-          onPress={() => {
-            continueWithProfile({ id: user.uid, displayName: fallbackName, email: user.email ?? '' });
-          }}
-        >
-          <Text style={styles.buttonText}>Weiter zum Ergebnis</Text>
-        </Pressable>
-      </View>
-    );
-  }
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Ergebnis freischalten</Text>
       <Text style={styles.text}>Speichere dein Ergebnis und vergleiche es später mit deinem Partner.</Text>
+      {user?.email && <Text style={styles.text}>Du bist bereits eingeloggt. Mit Weiter verknüpfst du dein Ergebnis mit diesem Konto.</Text>}
       <TextInput placeholder="Vorname" style={styles.input} value={displayName} onChangeText={setDisplayName} />
+      {!user?.email && (<>
       <TextInput
         placeholder="E-Mail-Adresse"
         style={styles.input}
@@ -111,6 +105,7 @@ export default function RegistrierungScreen() {
       />
       <TextInput placeholder="Kennwort" style={styles.input} secureTextEntry value={password} onChangeText={setPassword} />
       <TextInput placeholder="Kennwort wiederholen" style={styles.input} secureTextEntry value={passwordRepeat} onChangeText={setPasswordRepeat} />
+      </>)}
       <Pressable style={styles.button} onPress={handleContinue}>
         <Text style={styles.buttonText}>Weiter</Text>
       </Pressable>
