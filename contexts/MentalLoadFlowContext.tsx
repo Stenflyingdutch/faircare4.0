@@ -1,10 +1,19 @@
 import { createContext, ReactNode, useContext, useMemo, useState } from 'react';
 import { buildQuestionsForAgeGroups, type AgeGroup, type MentalLoadQuestion } from '@/lib/mentalLoadQuestions';
+import {
+  buildSharedResult,
+  calculateIndividualResult,
+  createEmptyIndividualResult,
+  type CategoryScore,
+  type SharedResultView,
+} from '@/lib/resultLogic';
+
+export type MentalLoadAnswerValue = 'ich' | 'eher_ich' | 'beide' | 'eher_partner' | 'partner';
 
 export type MentalLoadAnswer = {
   questionId: string;
   category: string;
-  answer: 'ich' | 'fifty' | 'partner';
+  answer: MentalLoadAnswerValue;
   stress?: number;
 };
 
@@ -34,8 +43,10 @@ export type MentalLoadSession = {
     id: string;
     childrenCount: number;
     childrenAgeGroups: AgeGroup[];
-    answers: MentalLoadAnswer[];
-    completed: boolean;
+    initiatorAnswers: MentalLoadAnswer[];
+    partnerAnswers: MentalLoadAnswer[];
+    initiatorQuizCompleted: boolean;
+    partnerQuizCompleted: boolean;
   };
   initiatorUser: { id: string; displayName: string; email: string } | null;
   partnerUser: { id: string; displayName: string; email: string } | null;
@@ -45,8 +56,7 @@ export type MentalLoadSession = {
   tasks: TaskItem[];
   weeklyReview: { lastCompletedAt: string | null; upcomingAt: string | null };
   weeklyReviewAnswers: WeeklyReviewAnswer[];
-  notificationState: { partnerCompleted: boolean; completionMailSent: boolean };
-  passwordSetup: { initiator: boolean; partner: boolean };
+  setupCompleted: boolean;
 };
 
 const defaultSession: MentalLoadSession = {
@@ -54,51 +64,47 @@ const defaultSession: MentalLoadSession = {
     id: `anon_${Date.now()}`,
     childrenCount: 1,
     childrenAgeGroups: [],
-    answers: [],
-    completed: false,
+    initiatorAnswers: [],
+    partnerAnswers: [],
+    initiatorQuizCompleted: false,
+    partnerQuizCompleted: false,
   },
   initiatorUser: null,
   partnerUser: null,
   pairOrHouseholdContext: {
     id: `household_${Date.now()}`,
-    inviteToken: `invite_${Math.random().toString(36).slice(2, 10)}`,
+    inviteToken: `invite_${Math.random().toString(36).slice(2, 8).toUpperCase()}`,
     inviteStatus: 'pending',
   },
   goals: [],
   goalStatus: 'not_started',
   tasks: [
-    { id: 'task_1', title: 'Arzttermine im Blick halten', owner: null },
-    { id: 'task_2', title: 'Kita-/Schul-Organisation koordinieren', owner: null },
-    { id: 'task_3', title: 'Wochenplanung für Mahlzeiten', owner: null },
+    { id: 'task_1', title: 'Arzttermine und Gesundheit koordinieren', owner: null },
+    { id: 'task_2', title: 'Termine mit Kita oder Schule im Blick halten', owner: null },
+    { id: 'task_3', title: 'Alltagsvorbereitung für die Woche planen', owner: null },
   ],
   weeklyReview: {
     lastCompletedAt: null,
     upcomingAt: null,
   },
   weeklyReviewAnswers: [],
-  notificationState: {
-    partnerCompleted: false,
-    completionMailSent: false,
-  },
-  passwordSetup: {
-    initiator: false,
-    partner: false,
-  },
+  setupCompleted: false,
 };
 
 type ContextValue = {
   session: MentalLoadSession;
   questions: MentalLoadQuestion[];
+  initiatorResult: { totalScore: number; categoryScores: CategoryScore[]; summaryBullets: string[] };
+  partnerResult: { totalScore: number; categoryScores: CategoryScore[]; summaryBullets: string[] };
+  sharedResult: SharedResultView | null;
   setChildrenCount: (count: number) => void;
   setAgeGroups: (groups: AgeGroup[]) => void;
-  saveAnswer: (answer: MentalLoadAnswer) => void;
-  completeQuiz: () => void;
+  saveAnswer: (role: 'initiator' | 'partner', answer: MentalLoadAnswer) => void;
+  completeQuiz: (role: 'initiator' | 'partner') => void;
   saveInitiatorUser: (profile: { id: string; displayName: string; email: string }) => void;
   savePartnerUser: (profile: { id: string; displayName: string; email: string }) => void;
-  claimInvite: () => void;
-  completePartnerFlow: () => void;
-  submitPartnerResult: () => void;
-  markPasswordSetupDone: (email: string) => void;
+  claimInvite: (token: string) => boolean;
+  getInviteCode: () => string;
   setGoals: (goals: GoalOption[]) => void;
   setTaskOwner: (taskId: string, owner: TaskItem['owner']) => void;
   completeSetup: () => void;
@@ -115,10 +121,36 @@ export function MentalLoadFlowProvider({ children }: { children: ReactNode }) {
     [session.anonymousQuizSession.childrenAgeGroups],
   );
 
+  const initiatorResult = useMemo(
+    () =>
+      session.anonymousQuizSession.initiatorAnswers.length
+        ? calculateIndividualResult(session.anonymousQuizSession.initiatorAnswers)
+        : createEmptyIndividualResult(),
+    [session.anonymousQuizSession.initiatorAnswers],
+  );
+
+  const partnerResult = useMemo(
+    () =>
+      session.anonymousQuizSession.partnerAnswers.length
+        ? calculateIndividualResult(session.anonymousQuizSession.partnerAnswers)
+        : createEmptyIndividualResult(),
+    [session.anonymousQuizSession.partnerAnswers],
+  );
+
+  const sharedResult = useMemo(() => {
+    if (!session.anonymousQuizSession.initiatorQuizCompleted || !session.anonymousQuizSession.partnerQuizCompleted) {
+      return null;
+    }
+    return buildSharedResult(session.anonymousQuizSession.initiatorAnswers, session.anonymousQuizSession.partnerAnswers);
+  }, [session.anonymousQuizSession]);
+
   const value = useMemo<ContextValue>(
     () => ({
       session,
       questions,
+      initiatorResult,
+      partnerResult,
+      sharedResult,
       setChildrenCount: (count) => {
         setSession((prev) => ({
           ...prev,
@@ -131,69 +163,59 @@ export function MentalLoadFlowProvider({ children }: { children: ReactNode }) {
           anonymousQuizSession: { ...prev.anonymousQuizSession, childrenAgeGroups: groups },
         }));
       },
-      saveAnswer: (answer) => {
+      saveAnswer: (role, answer) => {
         setSession((prev) => {
-          const filtered = prev.anonymousQuizSession.answers.filter((item) => item.questionId !== answer.questionId);
+          const key = role === 'initiator' ? 'initiatorAnswers' : 'partnerAnswers';
+          const currentAnswers = prev.anonymousQuizSession[key];
+          const filtered = currentAnswers.filter((item) => item.questionId !== answer.questionId);
           return {
             ...prev,
             anonymousQuizSession: {
               ...prev.anonymousQuizSession,
-              answers: [...filtered, answer],
+              [key]: [...filtered, answer],
             },
           };
         });
       },
-      completeQuiz: () => {
+      completeQuiz: (role) => {
         setSession((prev) => ({
           ...prev,
-          anonymousQuizSession: { ...prev.anonymousQuizSession, completed: true },
+          anonymousQuizSession: {
+            ...prev.anonymousQuizSession,
+            initiatorQuizCompleted: role === 'initiator' ? true : prev.anonymousQuizSession.initiatorQuizCompleted,
+            partnerQuizCompleted: role === 'partner' ? true : prev.anonymousQuizSession.partnerQuizCompleted,
+          },
+          pairOrHouseholdContext: {
+            ...prev.pairOrHouseholdContext,
+            inviteStatus: role === 'partner' ? 'completed' : prev.pairOrHouseholdContext.inviteStatus,
+          },
         }));
       },
       saveInitiatorUser: (profile) => setSession((prev) => ({ ...prev, initiatorUser: profile })),
-      savePartnerUser: (profile) => setSession((prev) => ({ ...prev, partnerUser: profile })),
-      claimInvite: () =>
-        setSession((prev) => {
-          if (prev.pairOrHouseholdContext.inviteStatus === 'accepted') {
-            return prev;
-          }
-
-          return {
+      savePartnerUser: (profile) =>
+        setSession((prev) => ({
+          ...prev,
+          partnerUser: profile,
+          pairOrHouseholdContext: { ...prev.pairOrHouseholdContext, inviteStatus: 'accepted' },
+        })),
+      claimInvite: (token) => {
+        const valid = token.trim().toUpperCase() === session.pairOrHouseholdContext.inviteToken;
+        if (valid) {
+          setSession((prev) => ({
             ...prev,
             pairOrHouseholdContext: { ...prev.pairOrHouseholdContext, inviteStatus: 'accepted' },
-          };
-        }),
-      completePartnerFlow: () =>
-        setSession((prev) => ({
-          ...prev,
-          pairOrHouseholdContext: { ...prev.pairOrHouseholdContext, inviteStatus: 'completed' },
-          notificationState: { ...prev.notificationState, partnerCompleted: true },
-        })),
-      submitPartnerResult: () =>
-        setSession((prev) => ({
-          ...prev,
-          pairOrHouseholdContext: { ...prev.pairOrHouseholdContext, inviteStatus: 'completed' },
-          notificationState: { ...prev.notificationState, partnerCompleted: true, completionMailSent: true },
-        })),
-      markPasswordSetupDone: (email) =>
-        setSession((prev) => {
-          const normalized = email.trim().toLowerCase();
-          const isInitiator = prev.initiatorUser?.email.toLowerCase() === normalized;
-          const isPartner = prev.partnerUser?.email.toLowerCase() === normalized;
-          return {
-            ...prev,
-            passwordSetup: {
-              initiator: prev.passwordSetup.initiator || Boolean(isInitiator),
-              partner: prev.passwordSetup.partner || Boolean(isPartner),
-            },
-          };
-        }),
+          }));
+        }
+        return valid;
+      },
+      getInviteCode: () => session.pairOrHouseholdContext.inviteToken,
       setGoals: (goals) => setSession((prev) => ({ ...prev, goals, goalStatus: 'in_progress' })),
       setTaskOwner: (taskId, owner) =>
         setSession((prev) => ({
           ...prev,
           tasks: prev.tasks.map((task) => (task.id === taskId ? { ...task, owner } : task)),
         })),
-      completeSetup: () => setSession((prev) => ({ ...prev, goalStatus: 'done' })),
+      completeSetup: () => setSession((prev) => ({ ...prev, goalStatus: 'done', setupCompleted: true })),
       saveWeeklyReview: (payload) =>
         setSession((prev) => ({
           ...prev,
@@ -204,7 +226,7 @@ export function MentalLoadFlowProvider({ children }: { children: ReactNode }) {
           },
         })),
     }),
-    [questions, session],
+    [initiatorResult, partnerResult, questions, session, sharedResult],
   );
 
   return <MentalLoadFlowContext.Provider value={value}>{children}</MentalLoadFlowContext.Provider>;

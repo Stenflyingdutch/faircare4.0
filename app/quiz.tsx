@@ -5,25 +5,24 @@ import { useMentalLoadFlow } from '@/contexts/MentalLoadFlowContext';
 
 const ANSWERS = [
   { value: 'ich', label: 'Ich' },
-  { value: 'fifty', label: '50/50' },
+  { value: 'eher_ich', label: 'Eher ich' },
+  { value: 'beide', label: 'Beide' },
+  { value: 'eher_partner', label: 'Eher Partner' },
   { value: 'partner', label: 'Partner' },
 ] as const;
 
 export default function QuizScreen() {
   const params = useLocalSearchParams<{ mode?: string }>();
-  const isPartnerFlow = params.mode === 'partner';
-  const { questions, session, saveAnswer, completeQuiz, completePartnerFlow } = useMentalLoadFlow();
+  const role = params.mode === 'partner' ? 'partner' : 'initiator';
+  const { questions, session, saveAnswer, completeQuiz } = useMentalLoadFlow();
   const [index, setIndex] = useState(0);
   const [stress, setStress] = useState(3);
 
   const question = questions[index];
-  const currentAnswer = session.anonymousQuizSession.answers.find((item) => item.questionId === question.id);
+  const answers = role === 'partner' ? session.anonymousQuizSession.partnerAnswers : session.anonymousQuizSession.initiatorAnswers;
+  const currentAnswer = answers.find((item) => item.questionId === question.id);
 
-  const answered = useMemo(
-    () => new Set(session.anonymousQuizSession.answers.map((item) => item.questionId)),
-    [session.anonymousQuizSession.answers],
-  );
-
+  const answered = useMemo(() => new Set(answers.map((item) => item.questionId)), [answers]);
   const isLast = index === questions.length - 1;
 
   return (
@@ -39,7 +38,7 @@ export default function QuizScreen() {
             <Pressable
               key={item.value}
               style={[styles.choice, selected && styles.choiceActive]}
-              onPress={() => saveAnswer({ questionId: question.id, category: question.category, answer: item.value, stress })}
+              onPress={() => saveAnswer(role, { questionId: question.id, category: question.category, answer: item.value, stress })}
             >
               <Text style={[styles.choiceText, selected && styles.choiceTextActive]}>{item.label}</Text>
             </Pressable>
@@ -48,6 +47,7 @@ export default function QuizScreen() {
       </View>
 
       <Text style={styles.stressTitle}>Stress-Level: {stress}</Text>
+      <Text style={styles.stressLabel}>1 kein Stress · 5 sehr viel Stress</Text>
       <View style={styles.row}>
         {[1, 2, 3, 4, 5].map((value) => (
           <Pressable key={value} style={[styles.stressChip, stress === value && styles.choiceActive]} onPress={() => setStress(value)}>
@@ -65,11 +65,8 @@ export default function QuizScreen() {
           disabled={!answered.has(question.id)}
           onPress={() => {
             if (isLast) {
-              completeQuiz();
-              if (isPartnerFlow) {
-                completePartnerFlow();
-              }
-              router.replace({ pathname: '/quiz-teaser', params: { mode: isPartnerFlow ? 'partner' : 'initiator' } } as never);
+              completeQuiz(role);
+              router.replace({ pathname: '/quiz-teaser', params: { mode: role } } as never);
               return;
             }
             setIndex((curr) => curr + 1);
@@ -93,6 +90,7 @@ const styles = StyleSheet.create({
   choiceText: { color: '#0f172a' },
   choiceTextActive: { color: '#1d4ed8', fontWeight: '700' },
   stressTitle: { marginTop: 4, fontWeight: '600' },
+  stressLabel: { color: '#64748b' },
   stressChip: { padding: 10, borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 999, minWidth: 42, alignItems: 'center' },
   nav: { marginTop: 'auto', flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
   navButton: { flex: 1, backgroundColor: '#2563eb', borderRadius: 10, padding: 12 },

@@ -1,86 +1,46 @@
 import { Redirect, router, useLocalSearchParams } from 'expo-router';
-import { FirebaseError } from 'firebase/app';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMentalLoadFlow } from '@/contexts/MentalLoadFlowContext';
 import { getGermanFirebaseError } from '@/lib/firebaseError';
 
 export default function RegistrierungScreen() {
-  const { user, register, logout } = useAuth();
+  const { user, register } = useAuth();
   const { saveInitiatorUser, savePartnerUser } = useMentalLoadFlow();
-  const params = useLocalSearchParams<{ mode?: string; stage?: string; forceGuest?: string }>();
-  const isPartner = params.mode === 'partner';
-  const isPartnerPreQuiz = isPartner && params.stage === 'prequiz';
+  const params = useLocalSearchParams<{ mode?: string }>();
+  const role = params.mode === 'partner' ? 'partner' : 'initiator';
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [status, setStatus] = useState('');
-  const [isPreparingGuestFlow, setIsPreparingGuestFlow] = useState(false);
-  const forceGuest = params.forceGuest === '1';
 
-
-  useEffect(() => {
-    const prepare = async () => {
-      if (!forceGuest || !user) {
-        return;
-      }
-
-      setIsPreparingGuestFlow(true);
-      setStatus('Aktuelle Anmeldung wird beendet ...');
-      await logout();
-      setIsPreparingGuestFlow(false);
-      setStatus('');
-    };
-
-    prepare();
-  }, [forceGuest, logout, user]);
-
-  if (user && !forceGuest) {
+  if (user) {
     return <Redirect href={'/startseite' as never} />;
-  }
-
-  if (isPreparingGuestFlow || (user && forceGuest)) {
-    return (
-      <View style={styles.container}>
-        <Text style={styles.title}>Kurz registrieren</Text>
-        <Text style={styles.text}>Bitte kurz warten. Der aktuelle Account wird abgemeldet, damit der Partner fortfahren kann.</Text>
-      </View>
-    );
   }
 
   const handleContinue = async () => {
     setStatus('Registrierung läuft ...');
     try {
-      await register(email.trim(), null, displayName.trim());
-      if (isPartner) {
-        savePartnerUser({ id: email.trim().toLowerCase(), displayName: displayName.trim(), email: email.trim() });
+      await register(email.trim(), password.trim(), displayName.trim());
+      const profile = { id: email.trim().toLowerCase(), displayName: displayName.trim(), email: email.trim() };
+
+      if (role === 'partner') {
+        savePartnerUser(profile);
       } else {
-        saveInitiatorUser({ id: email.trim().toLowerCase(), displayName: displayName.trim(), email: email.trim() });
-      }
-      if (isPartnerPreQuiz) {
-        router.replace({ pathname: '/quiz-intro', params: { mode: 'partner' } } as never);
-        return;
+        saveInitiatorUser(profile);
       }
 
-      router.replace({ pathname: '/eigenes-ergebnis', params: { mode: isPartner ? 'partner' : 'initiator' } } as never);
+      router.replace({ pathname: '/eigenes-ergebnis', params: { mode: role } } as never);
     } catch (error) {
-      const isEmailAlreadyUsed = error instanceof FirebaseError && error.code === 'auth/email-already-in-use';
-
-      if (isPartnerPreQuiz && isEmailAlreadyUsed) {
-        savePartnerUser({ id: email.trim().toLowerCase(), displayName: displayName.trim(), email: email.trim() });
-        setStatus('E-Mail existiert bereits. Partner-Profil wurde übernommen und Quiz wird gestartet ...');
-        router.replace({ pathname: '/quiz-intro', params: { mode: 'partner' } } as never);
-        return;
-      }
-
       setStatus(`Fehler: ${getGermanFirebaseError(error)}`);
     }
   };
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>{isPartnerPreQuiz ? 'Kurz registrieren' : 'Ergebnis freischalten'}</Text>
-      <Text style={styles.text}>{isPartnerPreQuiz ? 'Das ist die minimale Voraussetzung, damit später das gemeinsame Ergebnis sichtbar ist.' : 'Speichere dein Ergebnis und vergleiche es später mit deinem Partner.'}</Text>
+      <Text style={styles.title}>Ergebnis freischalten</Text>
+      <Text style={styles.text}>Speichere dein Ergebnis und vergleiche es später mit deinem Partner.</Text>
       <TextInput placeholder="Vorname" style={styles.input} value={displayName} onChangeText={setDisplayName} />
       <TextInput
         placeholder="E-Mail-Adresse"
@@ -90,6 +50,7 @@ export default function RegistrierungScreen() {
         keyboardType="email-address"
         autoCapitalize="none"
       />
+      <TextInput placeholder="Kennwort" style={styles.input} secureTextEntry value={password} onChangeText={setPassword} />
       <Pressable style={styles.button} onPress={handleContinue}>
         <Text style={styles.buttonText}>Weiter</Text>
       </Pressable>

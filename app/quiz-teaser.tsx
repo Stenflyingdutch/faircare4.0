@@ -12,9 +12,9 @@ export default function QuizTeaserScreen() {
       <Text style={styles.text}>
         Mental Load bedeutet, an Dinge zu denken, voraus zu planen und den Überblick zu behalten. Auch dann, wenn nichts aktiv erledigt wird.
       </Text>
-      <Text style={styles.text}>{mode === 'partner' ? 'Danke. Du kannst jetzt dein Ergebnis absenden.' : 'Für dein vollständiges Ergebnis registriere dich jetzt.'}</Text>
-      <Pressable style={styles.cta} onPress={() => router.push((mode === 'partner' ? { pathname: '/eigenes-ergebnis', params: { mode: 'partner' } } : { pathname: '/registrieren', params: { mode } }) as never)}>
-        <Text style={styles.ctaText}>{mode === 'partner' ? 'Zum Ergebnis' : 'Ergebnis freischalten'}</Text>
+      <Text style={styles.text}>Für dein vollständiges Ergebnis registriere dich jetzt.</Text>
+      <Pressable style={styles.cta} onPress={() => router.push({ pathname: '/registrieren', params: { mode } } as never)}>
+        <Text style={styles.ctaText}>Ergebnis freischalten</Text>
       </Pressable>
     </View>
   );
