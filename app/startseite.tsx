@@ -1,4 +1,4 @@
-import { router, Redirect, useLocalSearchParams } from 'expo-router';
+import { router, Redirect } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useAuth } from '@/contexts/AuthContext';
@@ -11,7 +11,7 @@ import { doc, getDoc } from 'firebase/firestore';
 type MainTab = 'startseite' | 'ziele' | 'aufgaben' | 'review';
 
 const TAB_ITEMS: { key: MainTab; label: string }[] = [
-  { key: 'startseite', label: 'Startseite' },
+  { key: 'startseite', label: 'Start' },
   { key: 'ziele', label: 'Ziele' },
   { key: 'aufgaben', label: 'Aufgaben' },
   { key: 'review', label: 'Review' },
@@ -33,7 +33,6 @@ export default function StartseiteScreen() {
     updateTask,
     removeTask,
     setupStatus,
-    getInviteCode,
     setInviteCode,
     saveInitiatorUser,
     savePartnerUser,
@@ -42,7 +41,7 @@ export default function StartseiteScreen() {
     updateGoal,
     removeGoal,
   } = useMentalLoadFlow();
-  const params = useLocalSearchParams<{ fromLogin?: string }>();
+
   const [activeTab, setActiveTab] = useState<MainTab>('startseite');
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [goalDraft, setGoalDraft] = useState('');
@@ -57,8 +56,6 @@ export default function StartseiteScreen() {
   const initiatorName = session.initiatorUser?.displayName || 'Initiator';
   const partnerName = session.partnerUser?.displayName || 'Partner';
   const ownTasks = useMemo(() => session.tasks.filter((task) => task.owner === ownOwner), [ownOwner, session.tasks]);
-  const allAssignedTasks = useMemo(() => session.tasks.filter((task) => task.owner !== null), [session.tasks]);
-  const allowMainFromLogin = params.fromLogin === 'true';
 
   const addNewTask = () => {
     const clean = newTaskTitle.trim();
@@ -68,14 +65,6 @@ export default function StartseiteScreen() {
     addTask(clean, ownOwner);
     setNewTaskTitle('');
   };
-
-  const loginResumeMode = allowMainFromLogin && !setupStatus.hatQuizAbgeschlossen;
-  const hasAccountProgress = allowMainFromLogin || setupStatus.istRegistriert || Boolean(session.initiatorUser) || Boolean(session.partnerUser);
-
-  const isPartnerReady =
-    !isInitiator &&
-    Boolean(session.partnerUser) &&
-    session.anonymousQuizSession.partnerQuizCompleted;
 
   useEffect(() => {
     const syncFamilyContext = async () => {
@@ -126,175 +115,7 @@ export default function StartseiteScreen() {
     };
 
     syncFamilyContext();
-  }, [hydrateAnswers, saveInitiatorUser, savePartnerUser, setInviteCode, user?.uid]);
-
-  useEffect(() => {
-    if (
-      setupStatus.gemeinsamesErgebnisVerfuegbar &&
-      !setupStatus.zieleFestgelegt &&
-      !setupStatus.setupAbgeschlossen
-    ) {
-      const timer = setTimeout(() => {
-        router.replace('/ziele-auswahl' as never);
-      }, 1500);
-
-      return () => clearTimeout(timer);
-    }
-
-    return undefined;
-  }, [setupStatus.gemeinsamesErgebnisVerfuegbar, setupStatus.zieleFestgelegt, setupStatus.setupAbgeschlossen]);
-
-  const nextAction = () => {
-    if (loginResumeMode) {
-      return { label: 'Eigenes Ergebnis ansehen', route: '/eigenes-ergebnis' };
-    }
-    if (!setupStatus.hatQuizAbgeschlossen) {
-      return hasAccountProgress ? { label: 'Eigenes Ergebnis ansehen', route: '/eigenes-ergebnis' } : { label: 'Quiz starten', route: '/quiz-intro' };
-    }
-    if (!setupStatus.istRegistriert) {
-      return { label: 'Registrierung abschließen', route: '/registrieren' };
-    }
-    if (!setupStatus.gemeinsamesErgebnisVerfuegbar) {
-      return { label: 'Partner einladen', route: '/partner-einladen' };
-    }
-    if (!setupStatus.zieleFestgelegt) {
-      return { label: 'Ziele festlegen', route: '/ziele-auswahl' };
-    }
-    if (!setupStatus.aufgabenZugeordnet) {
-      return { label: 'Aufgaben zuordnen', route: '/aufgaben' };
-    }
-    return { label: 'Zum Dashboard', route: '/startseite' };
-  };
-
-  if (isPartnerReady && !setupStatus.setupAbgeschlossen) {
-    return (
-      <ScrollView contentContainerStyle={styles.container}>
-        <View style={styles.headerRow}>
-          <Text style={styles.title}>Startseite</Text>
-          <Pressable style={styles.iconButton} onPress={() => router.push('/einstellungen' as never)}>
-            <Text style={styles.iconText}>⚙️</Text>
-          </Pressable>
-        </View>
-
-        {setupStatus.gemeinsamesErgebnisVerfuegbar && (
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Ergebnisse</Text>
-            <Pressable onPress={() => router.push('/eigenes-ergebnis' as never)}>
-              <Text style={styles.link}>Individuelles Ergebnis ansehen</Text>
-            </Pressable>
-            <Pressable onPress={() => router.push('/gemeinsames-ergebnis' as never)}>
-              <Text style={styles.link}>Gemeinsames Ergebnis ansehen</Text>
-            </Pressable>
-            {!setupStatus.zieleFestgelegt && <Text style={styles.text}>Weiterleitung zu Zielen läuft ...</Text>}
-          </View>
-        )}
-
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Dein aktueller Stand</Text>
-          <Pressable onPress={() => router.push({ pathname: '/eigenes-ergebnis', params: { mode: 'partner' } } as never)}>
-            <Text style={styles.link}>Eigenes Ergebnis ansehen</Text>
-          </Pressable>
-          <Pressable onPress={() => router.push('/gemeinsames-ergebnis' as never)}>
-            <Text style={styles.link}>Gemeinsames Ergebnis ansehen</Text>
-          </Pressable>
-        </View>
-
-        {setupStatus.gemeinsamesErgebnisVerfuegbar && !setupStatus.zieleFestgelegt && (
-          <View style={styles.card}>
-            <Text style={styles.text}>Weiterleitung zu Zielen läuft ...</Text>
-          </View>
-        )}
-
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Vergleich</Text>
-          <Text style={styles.text}>
-            {setupStatus.gemeinsamesErgebnisVerfuegbar
-              ? 'Euer gemeinsames Ergebnis ist bereit.'
-              : 'Sobald beide Ergebnisse verfügbar sind, erscheint hier der Vergleich.'}
-          </Text>
-        </View>
-      </ScrollView>
-    );
-  }
-
-  if (!setupStatus.setupAbgeschlossen) {
-    const action = nextAction();
-
-    return (
-      <ScrollView contentContainerStyle={styles.container}>
-        <View style={styles.headerRow}>
-          <Text style={styles.title}>Startseite</Text>
-          <Pressable style={styles.iconButton} onPress={() => router.push('/einstellungen' as never)}>
-            <Text style={styles.iconText}>⚙️</Text>
-          </Pressable>
-        </View>
-
-        {!hasAccountProgress && (
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Euer Setup läuft</Text>
-            <Text style={styles.text}>Tabs werden aktiviert, sobald gemeinsames Ergebnis, Ziele und Aufgaben abgeschlossen sind.</Text>
-            <Pressable style={styles.primary} onPress={() => router.push(action.route as never)}>
-              <Text style={styles.primaryText}>{action.label}</Text>
-            </Pressable>
-          </View>
-        )}
-
-        {hasAccountProgress && (
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Nächster Schritt</Text>
-            <Pressable style={styles.primary} onPress={() => router.push(action.route as never)}>
-              <Text style={styles.primaryText}>{action.label}</Text>
-            </Pressable>
-          </View>
-        )}
-
-        {setupStatus.gemeinsamesErgebnisVerfuegbar && (
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Ergebnisse</Text>
-            <Pressable onPress={() => router.push('/eigenes-ergebnis' as never)}>
-              <Text style={styles.link}>Individuelles Ergebnis ansehen</Text>
-            </Pressable>
-            <Pressable onPress={() => router.push('/gemeinsames-ergebnis' as never)}>
-              <Text style={styles.link}>Gemeinsames Ergebnis ansehen</Text>
-            </Pressable>
-            {!setupStatus.zieleFestgelegt && <Text style={styles.text}>Weiterleitung zu Zielen läuft ...</Text>}
-          </View>
-        )}
-
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Dein aktueller Stand</Text>
-          <Pressable onPress={() => router.push('/eigenes-ergebnis' as never)}>
-            <Text style={styles.link}>Individuelles Ergebnis ansehen</Text>
-          </Pressable>
-          {isInitiator && <Text style={styles.text}>Einladungscode: {getInviteCode()}</Text>}
-          <Text style={styles.text}>Partnerstatus: {session.pairOrHouseholdContext.inviteStatus}</Text>
-          <Pressable onPress={() => router.push('/partner-einladen' as never)}>
-            <Text style={styles.link}>Partner verknüpfen</Text>
-          </Pressable>
-        </View>
-
-        {setupStatus.gemeinsamesErgebnisVerfuegbar && !setupStatus.zieleFestgelegt && (
-          <View style={styles.card}>
-            <Text style={styles.text}>Weiterleitung zu Zielen läuft ...</Text>
-          </View>
-        )}
-
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Vergleich</Text>
-          <Text style={styles.text}>
-            {setupStatus.gemeinsamesErgebnisVerfuegbar
-              ? 'Gemeinsames Ergebnis ist verfügbar.'
-              : 'Partner-Ergebnis fehlt noch. Der Vergleich erscheint automatisch, sobald es vorliegt.'}
-          </Text>
-          {setupStatus.gemeinsamesErgebnisVerfuegbar && (
-            <Pressable onPress={() => router.push('/gemeinsames-ergebnis' as never)}>
-              <Text style={styles.link}>Gemeinsames Ergebnis ansehen</Text>
-            </Pressable>
-          )}
-        </View>
-      </ScrollView>
-    );
-  }
+  }, [hydrateAnswers, saveInitiatorUser, savePartnerUser, setInviteCode, user?.uid, user?.email]);
 
   return (
     <View style={styles.mainContainer}>
@@ -307,6 +128,13 @@ export default function StartseiteScreen() {
                 <Text style={styles.iconText}>⚙️</Text>
               </Pressable>
             </View>
+
+            {!setupStatus.setupAbgeschlossen && (
+              <View style={styles.card}>
+                <Text style={styles.cardTitle}>Euer Setup läuft</Text>
+                <Text style={styles.text}>Als nächstes: Ziele festlegen und Aufgaben fair verteilen.</Text>
+              </View>
+            )}
 
             <View style={styles.card}>
               <Text style={styles.cardTitle}>Eure aktiven Ziele</Text>
@@ -346,9 +174,8 @@ export default function StartseiteScreen() {
                 </View>
               </View>
             ))}
-            {session.goals.length === 0 && <Text style={styles.text}>Noch keine Ziele ausgewählt.</Text>}
             <View style={styles.card}>
-              <TextInput placeholder="Neues Ziel" value={goalDraft} onChangeText={setGoalDraft} style={styles.input} />
+              <TextInput placeholder="Eigenes Ziel hinzufügen" value={goalDraft} onChangeText={setGoalDraft} style={styles.input} />
               <Pressable
                 style={styles.primary}
                 onPress={() => {
@@ -367,7 +194,7 @@ export default function StartseiteScreen() {
               </Pressable>
             </View>
             <Pressable style={styles.secondary} onPress={() => router.push('/ziele-auswahl' as never)}>
-              <Text style={styles.secondaryText}>Ziele anpassen</Text>
+              <Text style={styles.secondaryText}>Vorschläge auswählen</Text>
             </Pressable>
           </ScrollView>
         )}
@@ -394,7 +221,6 @@ export default function StartseiteScreen() {
                 <Text style={styles.primaryText}>Neue Aufgabe hinzufügen</Text>
               </Pressable>
             </View>
-            <Text style={styles.text}>Gesamt mit Ownership: {allAssignedTasks.length} von {session.tasks.length}</Text>
           </ScrollView>
         )}
 
