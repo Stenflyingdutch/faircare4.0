@@ -21,10 +21,9 @@ const GOAL_STATUS: Record<string, string> = {
   'Bessere Vorbereitung im Alltag': 'aktiv',
 };
 
-
 export default function StartseiteScreen() {
   const { user } = useAuth();
-  const { session, addTask, setupStatus, nextSetupRoute } = useMentalLoadFlow();
+  const { session, addTask, setupStatus, getInviteCode } = useMentalLoadFlow();
   const params = useLocalSearchParams<{ fromLogin?: string }>();
   const [activeTab, setActiveTab] = useState<MainTab>('startseite');
   const [newTaskTitle, setNewTaskTitle] = useState('');
@@ -35,9 +34,9 @@ export default function StartseiteScreen() {
 
   const isInitiator = session.initiatorUser?.email?.toLowerCase() === user.email?.toLowerCase();
   const ownOwner = isInitiator ? 'initiator' : 'partner';
-
   const ownTasks = useMemo(() => session.tasks.filter((task) => task.owner === ownOwner), [ownOwner, session.tasks]);
   const allAssignedTasks = useMemo(() => session.tasks.filter((task) => task.owner !== null), [session.tasks]);
+  const allowMainFromLogin = params.fromLogin === 'true';
 
   const addNewTask = () => {
     const clean = newTaskTitle.trim();
@@ -48,10 +47,77 @@ export default function StartseiteScreen() {
     setNewTaskTitle('');
   };
 
-  const allowMainFromLogin = params.fromLogin === 'true';
+  const loginResumeMode = allowMainFromLogin && !setupStatus.hatQuizAbgeschlossen;
 
-  if (!setupStatus.setupAbgeschlossen && !allowMainFromLogin) {
-    return <Redirect href={nextSetupRoute as never} />;
+  const nextAction = () => {
+    if (loginResumeMode) {
+      return { label: 'Eigenes Ergebnis ansehen', route: '/eigenes-ergebnis' };
+    }
+    if (!setupStatus.hatQuizAbgeschlossen) {
+      return { label: 'Quiz starten', route: '/quiz-intro' };
+    }
+    if (!setupStatus.istRegistriert) {
+      return { label: 'Registrierung abschließen', route: '/registrieren' };
+    }
+    if (!setupStatus.gemeinsamesErgebnisVerfuegbar) {
+      return { label: 'Partner einladen', route: '/partner-einladen' };
+    }
+    if (!setupStatus.zieleFestgelegt) {
+      return { label: 'Ziele festlegen', route: '/ziele-auswahl' };
+    }
+    if (!setupStatus.aufgabenZugeordnet) {
+      return { label: 'Aufgaben zuordnen', route: '/aufgaben' };
+    }
+    return { label: 'Zum Dashboard', route: '/startseite' };
+  };
+
+  if (!setupStatus.setupAbgeschlossen) {
+    const action = nextAction();
+
+    return (
+      <ScrollView contentContainerStyle={styles.container}>
+        <View style={styles.headerRow}>
+          <Text style={styles.title}>Startseite</Text>
+          <Pressable style={styles.iconButton} onPress={() => router.push('/einstellungen' as never)}>
+            <Text style={styles.iconText}>⚙️</Text>
+          </Pressable>
+        </View>
+
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Euer Setup läuft</Text>
+          <Text style={styles.text}>Tabs werden aktiviert, sobald gemeinsames Ergebnis, Ziele und Aufgaben abgeschlossen sind.</Text>
+          <Pressable style={styles.primary} onPress={() => router.push(action.route as never)}>
+            <Text style={styles.primaryText}>{action.label}</Text>
+          </Pressable>
+        </View>
+
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Dein aktueller Stand</Text>
+          <Pressable onPress={() => router.push('/eigenes-ergebnis' as never)}>
+            <Text style={styles.link}>Individuelles Ergebnis ansehen</Text>
+          </Pressable>
+          <Text style={styles.text}>Einladungscode: {getInviteCode()}</Text>
+          <Text style={styles.text}>Partnerstatus: {session.pairOrHouseholdContext.inviteStatus}</Text>
+          <Pressable onPress={() => router.push('/partner-einladen' as never)}>
+            <Text style={styles.link}>Partner verknüpfen</Text>
+          </Pressable>
+        </View>
+
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Vergleich</Text>
+          <Text style={styles.text}>
+            {setupStatus.gemeinsamesErgebnisVerfuegbar
+              ? 'Gemeinsames Ergebnis ist verfügbar.'
+              : 'Partner-Ergebnis fehlt noch. Der Vergleich erscheint automatisch, sobald es vorliegt.'}
+          </Text>
+          {setupStatus.gemeinsamesErgebnisVerfuegbar && (
+            <Pressable onPress={() => router.push('/gemeinsames-ergebnis' as never)}>
+              <Text style={styles.link}>Gemeinsames Ergebnis ansehen</Text>
+            </Pressable>
+          )}
+        </View>
+      </ScrollView>
+    );
   }
 
   return (
@@ -65,12 +131,6 @@ export default function StartseiteScreen() {
                 <Text style={styles.iconText}>⚙️</Text>
               </Pressable>
             </View>
-
-            {allowMainFromLogin && !setupStatus.setupAbgeschlossen && (
-              <View style={styles.infoCard}>
-                <Text style={styles.text}>Du bist eingeloggt. Die Hauptnavigation ist verfügbar, auch wenn der lokale Setup-Status noch nicht vollständig geladen ist.</Text>
-              </View>
-            )}
 
             <View style={styles.card}>
               <Text style={styles.cardTitle}>Eure aktiven Ziele</Text>
@@ -126,12 +186,7 @@ export default function StartseiteScreen() {
             ))}
             <View style={styles.card}>
               <Text style={styles.cardTitle}>Neue Aufgabe hinzufügen</Text>
-              <TextInput
-                placeholder="Aufgabe eingeben"
-                value={newTaskTitle}
-                onChangeText={setNewTaskTitle}
-                style={styles.input}
-              />
+              <TextInput placeholder="Aufgabe eingeben" value={newTaskTitle} onChangeText={setNewTaskTitle} style={styles.input} />
               <Pressable style={styles.primary} onPress={addNewTask}>
                 <Text style={styles.primaryText}>Neue Aufgabe hinzufügen</Text>
               </Pressable>
@@ -143,32 +198,10 @@ export default function StartseiteScreen() {
         {activeTab === 'review' && (
           <ScrollView contentContainerStyle={styles.container}>
             <Text style={styles.title}>Review</Text>
-
             <View style={styles.card}>
               <Text style={styles.cardTitle}>Quiz-Ergebnisse als Referenz</Text>
               <Pressable onPress={() => router.push('/eigenes-ergebnis' as never)}><Text style={styles.link}>Individuelles Ergebnis ansehen</Text></Pressable>
               <Pressable onPress={() => router.push('/gemeinsames-ergebnis' as never)}><Text style={styles.link}>Gemeinsames Ergebnis ansehen</Text></Pressable>
-            </View>
-
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>Weekly Review</Text>
-              <Pressable style={styles.primary} onPress={() => router.push('/weekly-review' as never)}>
-                <Text style={styles.primaryText}>Jetzt starten</Text>
-              </Pressable>
-            </View>
-
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>Letzte Reviews</Text>
-              {session.weeklyReviewAnswers.length === 0 && <Text style={styles.text}>Noch kein Weekly Review abgeschlossen.</Text>}
-              {session.weeklyReviewAnswers.slice(-3).reverse().map((review, index) => (
-                <Text key={`review-${index}`} style={styles.text}>• Review #{session.weeklyReviewAnswers.length - index}: {review.positives[0] ?? 'ohne Eintrag'}</Text>
-              ))}
-            </View>
-
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>Offene Punkte</Text>
-              <Text style={styles.text}>• Ziel anpassen</Text>
-              <Text style={styles.text}>• Aufgabe neu zuweisen</Text>
             </View>
           </ScrollView>
         )}
@@ -191,7 +224,6 @@ const styles = StyleSheet.create({
   container: { padding: 24, gap: 12 },
   title: { fontSize: 30, fontWeight: '700' },
   card: { borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 10, padding: 12, gap: 8 },
-  infoCard: { borderWidth: 1, borderColor: '#bfdbfe', backgroundColor: '#eff6ff', borderRadius: 10, padding: 12 },
   cardTitle: { fontWeight: '700', fontSize: 17 },
   text: { color: '#334155' },
   listItem: { color: '#0f172a' },
