@@ -33,6 +33,7 @@ export type TaskItem = {
   status: 'offen' | 'aktiv' | 'pausiert';
   goal: string | null;
   details: string;
+  category: string;
 };
 
 export type WeeklyReviewAnswer = {
@@ -109,9 +110,9 @@ const defaultSession: MentalLoadSession = {
   goals: [],
   goalStatus: 'not_started',
   tasks: [
-    { id: 'task_1', title: 'Arzttermine und Gesundheit koordinieren', owner: null, status: 'offen', goal: null, details: '' },
-    { id: 'task_2', title: 'Termine mit Kita oder Schule im Blick halten', owner: null, status: 'offen', goal: null, details: '' },
-    { id: 'task_3', title: 'Alltagsvorbereitung für die Woche planen', owner: null, status: 'offen', goal: null, details: '' },
+    { id: 'task_1', title: 'Arzttermine und Gesundheit koordinieren', owner: null, status: 'offen', goal: null, details: '', category: 'Gesundheit' },
+    { id: 'task_2', title: 'Termine mit Kita oder Schule im Blick halten', owner: null, status: 'offen', goal: null, details: '', category: 'Organisation' },
+    { id: 'task_3', title: 'Alltagsvorbereitung für die Woche planen', owner: null, status: 'offen', goal: null, details: '', category: 'Alltag' },
   ],
   weeklyReview: {
     lastCompletedAt: null,
@@ -148,7 +149,7 @@ type ContextValue = {
   setTaskOwner: (taskId: string, owner: TaskItem['owner']) => void;
   updateTask: (taskId: string, patch: Partial<Omit<TaskItem, 'id'>>) => void;
   removeTask: (taskId: string) => void;
-  addTask: (title: string, owner?: TaskItem['owner']) => void;
+  addTask: (title: string, owner?: TaskItem['owner'], category?: string) => void;
   hydrateAnswers: (role: 'initiator' | 'partner', answers: MentalLoadAnswer[], quizCompleted?: boolean) => void;
   completeSetup: () => void;
   saveWeeklyReview: (payload: WeeklyReviewAnswer) => void;
@@ -343,7 +344,7 @@ export function MentalLoadFlowProvider({ children }: { children: ReactNode }) {
           ...prev,
           tasks: prev.tasks.filter((task) => task.id !== taskId),
         })),
-      addTask: (title, owner = null) =>
+      addTask: (title, owner = null, category = 'Allgemein') =>
         setSession((prev) => ({
           ...prev,
           tasks: [
@@ -355,6 +356,7 @@ export function MentalLoadFlowProvider({ children }: { children: ReactNode }) {
               status: owner ? 'aktiv' : 'offen',
               goal: prev.goals[0] ?? null,
               details: '',
+              category,
             },
           ],
         })),

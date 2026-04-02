@@ -207,8 +207,7 @@ export default function StartseiteScreen() {
               <View key={task.id} style={styles.card}>
                 <Text style={styles.cardTitle}>{task.title}</Text>
                 <Text style={styles.text}>Verantwortlich: {task.owner === 'initiator' ? initiatorName : task.owner === 'partner' ? partnerName : 'Nicht zugeordnet'}</Text>
-                <Text style={styles.text}>Zugeordnetes Ziel: {session.goals[0] ?? 'Noch kein Ziel zugeordnet'}</Text>
-                <Text style={styles.text}>Status: {task.status}</Text>
+                <Text style={styles.text}>Kategorie: {task.category}</Text>
                 <View style={styles.row}>
                   <Pressable style={styles.secondary} onPress={() => updateTask(task.id, { status: 'aktiv' })}><Text>Aktiv</Text></Pressable>
                   <Pressable style={styles.secondary} onPress={() => updateTask(task.id, { status: 'pausiert' })}><Text>Pausieren</Text></Pressable>
