@@ -1,4 +1,5 @@
 import { Redirect, router, useLocalSearchParams } from 'expo-router';
+import { FirebaseError } from 'firebase/app';
 import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useAuth } from '@/contexts/AuthContext';
@@ -63,6 +64,15 @@ export default function RegistrierungScreen() {
 
       router.replace({ pathname: '/eigenes-ergebnis', params: { mode: isPartner ? 'partner' : 'initiator' } } as never);
     } catch (error) {
+      const isEmailAlreadyUsed = error instanceof FirebaseError && error.code === 'auth/email-already-in-use';
+
+      if (isPartnerPreQuiz && isEmailAlreadyUsed) {
+        savePartnerUser({ id: email.trim().toLowerCase(), displayName: displayName.trim(), email: email.trim() });
+        setStatus('E-Mail existiert bereits. Partner-Profil wurde übernommen und Quiz wird gestartet ...');
+        router.replace({ pathname: '/quiz-intro', params: { mode: 'partner' } } as never);
+        return;
+      }
+
       setStatus(`Fehler: ${getGermanFirebaseError(error)}`);
     }
   };
