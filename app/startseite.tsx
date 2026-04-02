@@ -26,6 +26,25 @@ const GOAL_STATUS: Record<string, string> = {
 };
 const TASK_CATEGORIES = ['Alltag', 'Organisation', 'Gesundheit', 'Schule', 'Freizeit', 'Sonstiges'];
 
+function formatName(displayName?: string, email?: string, fallback = 'Unbekannt') {
+  const cleanDisplayName = displayName?.trim();
+  if (cleanDisplayName && cleanDisplayName.length >= 4) {
+    return cleanDisplayName;
+  }
+
+  const mailPrefix = email?.split('@')[0]?.trim();
+  if (mailPrefix) {
+    return mailPrefix
+      .replace(/[._-]+/g, ' ')
+      .split(' ')
+      .filter(Boolean)
+      .map((chunk) => chunk.charAt(0).toUpperCase() + chunk.slice(1))
+      .join(' ');
+  }
+
+  return cleanDisplayName || fallback;
+}
+
 export default function StartseiteScreen() {
   const { user } = useAuth();
   const {
@@ -60,8 +79,8 @@ export default function StartseiteScreen() {
 
   const isInitiator = session.initiatorUser?.email?.toLowerCase() === user.email?.toLowerCase();
   const ownOwner = isInitiator ? 'initiator' : 'partner';
-  const initiatorName = session.initiatorUser?.displayName || session.initiatorUser?.email || 'Initiator';
-  const partnerName = session.partnerUser?.displayName || session.partnerUser?.email || 'Partner';
+  const initiatorName = formatName(session.initiatorUser?.displayName, session.initiatorUser?.email, 'Initiator');
+  const partnerName = formatName(session.partnerUser?.displayName, session.partnerUser?.email, 'Partner');
   const ownTasks = useMemo(() => session.tasks.filter((task) => task.owner === ownOwner), [ownOwner, session.tasks]);
 
   const addNewTask = () => {
