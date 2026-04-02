@@ -1,11 +1,29 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useAuth } from '@/contexts/AuthContext';
 import { useMentalLoadFlow } from '@/contexts/MentalLoadFlowContext';
 
 export default function EigenesErgebnisScreen() {
-  const { initiatorResult, partnerResult } = useMentalLoadFlow();
+  const { user } = useAuth();
+  const { initiatorResult, partnerResult, session } = useMentalLoadFlow();
   const params = useLocalSearchParams<{ mode?: string }>();
-  const isPartner = params.mode === 'partner';
+
+  const isInitiatorByEmail = session.initiatorUser?.email?.toLowerCase() === user?.email?.toLowerCase();
+  const isPartnerByEmail = session.partnerUser?.email?.toLowerCase() === user?.email?.toLowerCase();
+
+  const inferredMode = params.mode === 'partner'
+    ? 'partner'
+    : params.mode === 'initiator'
+      ? 'initiator'
+      : isPartnerByEmail
+        ? 'partner'
+        : isInitiatorByEmail
+          ? 'initiator'
+          : session.anonymousQuizSession.partnerAnswers.length > session.anonymousQuizSession.initiatorAnswers.length
+            ? 'partner'
+            : 'initiator';
+
+  const isPartner = inferredMode === 'partner';
   const result = isPartner ? partnerResult : initiatorResult;
 
   return (
@@ -17,6 +35,9 @@ export default function EigenesErgebnisScreen() {
       {result.summaryBullets.map((bullet) => (
         <Text style={styles.bullet} key={bullet}>• {bullet}</Text>
       ))}
+      {result.summaryBullets.length === 0 && (
+        <Text style={styles.text}>Es sind aktuell keine lokal gespeicherten Detailantworten verfügbar. Starte das Quiz erneut, um die Detailauswertung zu aktualisieren.</Text>
+      )}
       <Text style={styles.text}>Dein Ergebnis basiert aktuell nur auf deinen Antworten.</Text>
 
       <View style={styles.section}>
