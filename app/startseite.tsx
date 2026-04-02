@@ -21,24 +21,6 @@ const GOAL_STATUS: Record<string, string> = {
   'Bessere Vorbereitung im Alltag': 'aktiv',
 };
 
-function setupLabel(route: string) {
-  switch (route) {
-    case '/quiz-intro':
-      return 'Quiz starten';
-    case '/registrieren':
-      return 'Registrierung abschließen';
-    case '/eigenes-ergebnis':
-      return 'Individuelles Ergebnis ansehen';
-    case '/partner-einladen':
-      return 'Partner verknüpfen';
-    case '/gemeinsames-ergebnis':
-      return 'Gemeinsame Ergebnisse ansehen';
-    case '/ziele-auswahl':
-      return 'Ziele festlegen';
-    default:
-      return 'Aufgaben zuordnen';
-  }
-}
 
 export default function StartseiteScreen() {
   const { user } = useAuth();
@@ -69,28 +51,7 @@ export default function StartseiteScreen() {
   const allowMainFromLogin = params.fromLogin === 'true';
 
   if (!setupStatus.setupAbgeschlossen && !allowMainFromLogin) {
-    return (
-      <ScrollView contentContainerStyle={styles.container}>
-        <Text style={styles.title}>Startseite</Text>
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Setup ist noch nicht abgeschlossen</Text>
-          <Text style={styles.text}>Die Hauptnavigation mit Tabs wird freigeschaltet, sobald ihr Quiz, Verknüpfung, Ziele und Aufgaben vollständig abgeschlossen habt.</Text>
-          <Pressable style={styles.primary} onPress={() => router.push(nextSetupRoute as never)}>
-            <Text style={styles.primaryText}>{setupLabel(nextSetupRoute)}</Text>
-          </Pressable>
-        </View>
-
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Nächster sinnvoller Schritt</Text>
-          <Text style={styles.text}>Status Quiz: {setupStatus.hatQuizAbgeschlossen ? 'erledigt' : 'offen'}</Text>
-          <Text style={styles.text}>Status Registrierung: {setupStatus.istRegistriert ? 'erledigt' : 'offen'}</Text>
-          <Text style={styles.text}>Status Partner: {setupStatus.partnerVerbunden ? 'verbunden' : 'nicht verbunden'}</Text>
-          <Text style={styles.text}>Gemeinsames Ergebnis: {setupStatus.gemeinsamesErgebnisVerfuegbar ? 'verfügbar' : 'offen'}</Text>
-          <Text style={styles.text}>Ziele festgelegt: {setupStatus.zieleFestgelegt ? 'ja' : 'nein'}</Text>
-          <Text style={styles.text}>Aufgaben zugeordnet: {setupStatus.aufgabenZugeordnet ? 'ja' : 'nein'}</Text>
-        </View>
-      </ScrollView>
-    );
+    return <Redirect href={nextSetupRoute as never} />;
   }
 
   return (
