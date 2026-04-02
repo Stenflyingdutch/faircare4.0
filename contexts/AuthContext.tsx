@@ -19,12 +19,16 @@ import { createUserProfile } from '@/services/familyService';
 type AuthContextValue = {
   user: User | null;
   loading: boolean;
-  register: (email: string, password: string, displayName: string) => Promise<void>;
+  register: (email: string, password: string | null, displayName: string) => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+
+function buildFallbackPassword(email: string) {
+  return `FairCare-${email.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 10)}-2026!`;
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -43,8 +47,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     () => ({
       user,
       loading,
-      register: async (email: string, password: string, displayName: string) => {
-        const credential = await createUserWithEmailAndPassword(auth, email, password);
+      register: async (email: string, password: string | null, displayName: string) => {
+        const usablePassword = password ?? buildFallbackPassword(email);
+        const credential = await createUserWithEmailAndPassword(auth, email, usablePassword);
         await createUserProfile({
           uid: credential.user.uid,
           email: credential.user.email ?? email,
