@@ -15,7 +15,17 @@ export default function RegistrierungScreen() {
   const [password, setPassword] = useState('');
   const [status, setStatus] = useState('');
 
-  if (user) {
+  const continueWithProfile = (profile: { id: string; displayName: string; email: string }) => {
+    if (role === 'partner') {
+      savePartnerUser(profile);
+    } else {
+      saveInitiatorUser(profile);
+    }
+
+    router.replace({ pathname: '/eigenes-ergebnis', params: { mode: role } } as never);
+  };
+
+  if (user && !user.email) {
     return <Redirect href={'/startseite' as never} />;
   }
 
@@ -24,18 +34,28 @@ export default function RegistrierungScreen() {
     try {
       await register(email.trim(), password.trim(), displayName.trim());
       const profile = { id: email.trim().toLowerCase(), displayName: displayName.trim(), email: email.trim() };
-
-      if (role === 'partner') {
-        savePartnerUser(profile);
-      } else {
-        saveInitiatorUser(profile);
-      }
-
-      router.replace({ pathname: '/eigenes-ergebnis', params: { mode: role } } as never);
+      continueWithProfile(profile);
     } catch (error) {
       setStatus(`Fehler: ${getGermanFirebaseError(error)}`);
     }
   };
+
+  if (user?.email) {
+    const fallbackName = user.displayName?.trim() || user.email.split('@')[0] || 'Nutzer';
+
+    return (
+      <View style={styles.container}>
+        <Text style={styles.title}>Konto bereits vorhanden</Text>
+        <Text style={styles.text}>Du bist schon eingeloggt. Wir übernehmen dein bestehendes Konto und zeigen dir direkt dein Ergebnis.</Text>
+        <Pressable
+          style={styles.button}
+          onPress={() => continueWithProfile({ id: user.uid, displayName: fallbackName, email: user.email ?? '' })}
+        >
+          <Text style={styles.buttonText}>Weiter zum Ergebnis</Text>
+        </Pressable>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
