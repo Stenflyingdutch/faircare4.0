@@ -59,6 +59,19 @@ export type MentalLoadSession = {
   setupCompleted: boolean;
 };
 
+function generateInviteCode(length = 6) {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = '';
+  for (let i = 0; i < length; i += 1) {
+    code += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return code;
+}
+
+function normalizeInviteCode(value: string) {
+  return value.trim().replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+}
+
 const defaultSession: MentalLoadSession = {
   anonymousQuizSession: {
     id: `anon_${Date.now()}`,
@@ -73,7 +86,7 @@ const defaultSession: MentalLoadSession = {
   partnerUser: null,
   pairOrHouseholdContext: {
     id: `household_${Date.now()}`,
-    inviteToken: `invite_${Math.random().toString(36).slice(2, 8).toUpperCase()}`,
+    inviteToken: generateInviteCode(),
     inviteStatus: 'pending',
   },
   goals: [],
@@ -199,7 +212,7 @@ export function MentalLoadFlowProvider({ children }: { children: ReactNode }) {
           pairOrHouseholdContext: { ...prev.pairOrHouseholdContext, inviteStatus: 'accepted' },
         })),
       claimInvite: (token) => {
-        const valid = token.trim().toUpperCase() === session.pairOrHouseholdContext.inviteToken;
+        const valid = normalizeInviteCode(token) === normalizeInviteCode(session.pairOrHouseholdContext.inviteToken);
         if (valid) {
           setSession((prev) => ({
             ...prev,

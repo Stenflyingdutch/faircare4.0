@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { Redirect, router } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMentalLoadFlow } from '@/contexts/MentalLoadFlowContext';
@@ -6,6 +6,10 @@ import { useMentalLoadFlow } from '@/contexts/MentalLoadFlowContext';
 export default function StartseiteScreen() {
   const { logout, user } = useAuth();
   const { session, sharedResult, initiatorResult } = useMentalLoadFlow();
+
+  if (!user) {
+    return <Redirect href={'/' as never} />;
+  }
 
   const partnerDone = session.anonymousQuizSession.partnerQuizCompleted && Boolean(session.partnerUser?.email);
 
@@ -15,7 +19,7 @@ export default function StartseiteScreen() {
         <Text style={styles.title}>Startseite</Text>
         <Pressable style={styles.logoutSmall} onPress={logout}><Text style={styles.logoutText}>Logout</Text></Pressable>
       </View>
-      <Text style={styles.text}>Hallo {user?.email ?? 'Gast'}.</Text>
+      <Text style={styles.text}>Hallo {user.email}.</Text>
 
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Individuelles Ergebnis</Text>
