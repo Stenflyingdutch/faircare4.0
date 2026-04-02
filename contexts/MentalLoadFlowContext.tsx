@@ -38,6 +38,18 @@ export type WeeklyReviewAnswer = {
   changes: string[];
 };
 
+export type SetupStatus = {
+  hatQuizAbgeschlossen: boolean;
+  istRegistriert: boolean;
+  hatIndividuellesErgebnis: boolean;
+  partnerVerbunden: boolean;
+  partnerHatQuizAbgeschlossen: boolean;
+  gemeinsamesErgebnisVerfuegbar: boolean;
+  zieleFestgelegt: boolean;
+  aufgabenZugeordnet: boolean;
+  setupAbgeschlossen: boolean;
+};
+
 export type MentalLoadSession = {
   anonymousQuizSession: {
     id: string;
@@ -57,6 +69,7 @@ export type MentalLoadSession = {
   weeklyReview: { lastCompletedAt: string | null; upcomingAt: string | null };
   weeklyReviewAnswers: WeeklyReviewAnswer[];
   setupCompleted: boolean;
+  needsQuizRefresh: boolean;
 };
 
 function generateInviteCode(length = 6) {
@@ -102,10 +115,13 @@ const defaultSession: MentalLoadSession = {
   },
   weeklyReviewAnswers: [],
   setupCompleted: false,
+  needsQuizRefresh: false,
 };
 
 type ContextValue = {
   session: MentalLoadSession;
+  setupStatus: SetupStatus;
+  nextSetupRoute: '/quiz-intro' | '/registrieren' | '/eigenes-ergebnis' | '/partner-einladen' | '/gemeinsames-ergebnis' | '/ziele-auswahl' | '/aufgaben';
   questions: MentalLoadQuestion[];
   initiatorResult: { totalScore: number; categoryScores: CategoryScore[]; summaryBullets: string[] };
   partnerResult: { totalScore: number; categoryScores: CategoryScore[]; summaryBullets: string[] };
@@ -158,9 +174,67 @@ export function MentalLoadFlowProvider({ children }: { children: ReactNode }) {
     return buildSharedResult(session.anonymousQuizSession.initiatorAnswers, session.anonymousQuizSession.partnerAnswers);
   }, [session.anonymousQuizSession]);
 
+  const setupStatus = useMemo<SetupStatus>(() => {
+    const hatQuizAbgeschlossen = session.anonymousQuizSession.initiatorQuizCompleted;
+    const istRegistriert = Boolean(session.initiatorUser);
+    const hatIndividuellesErgebnis = session.anonymousQuizSession.initiatorAnswers.length > 0;
+    const partnerVerbunden =
+      session.pairOrHouseholdContext.inviteStatus === 'accepted' ||
+      session.pairOrHouseholdContext.inviteStatus === 'completed' ||
+      Boolean(session.partnerUser);
+    const partnerHatQuizAbgeschlossen = session.anonymousQuizSession.partnerQuizCompleted;
+    const gemeinsamesErgebnisVerfuegbar = Boolean(sharedResult);
+    const zieleFestgelegt = session.goals.length > 0;
+    const aufgabenZugeordnet = session.tasks.every((task) => task.owner !== null);
+
+    return {
+      hatQuizAbgeschlossen,
+      istRegistriert,
+      hatIndividuellesErgebnis,
+      partnerVerbunden,
+      partnerHatQuizAbgeschlossen,
+      gemeinsamesErgebnisVerfuegbar,
+      zieleFestgelegt,
+      aufgabenZugeordnet,
+      setupAbgeschlossen:
+        hatQuizAbgeschlossen &&
+        istRegistriert &&
+        hatIndividuellesErgebnis &&
+        partnerVerbunden &&
+        partnerHatQuizAbgeschlossen &&
+        gemeinsamesErgebnisVerfuegbar &&
+        zieleFestgelegt &&
+        aufgabenZugeordnet,
+    };
+  }, [session, sharedResult]);
+
+  const nextSetupRoute = useMemo<ContextValue['nextSetupRoute']>(() => {
+    if (!setupStatus.hatQuizAbgeschlossen) {
+      return '/quiz-intro';
+    }
+    if (!setupStatus.istRegistriert) {
+      return '/registrieren';
+    }
+    if (!setupStatus.hatIndividuellesErgebnis) {
+      return '/eigenes-ergebnis';
+    }
+    if (!setupStatus.partnerVerbunden) {
+      return '/partner-einladen';
+    }
+    if (!setupStatus.gemeinsamesErgebnisVerfuegbar) {
+      return '/gemeinsames-ergebnis';
+    }
+    if (!setupStatus.zieleFestgelegt) {
+      return '/ziele-auswahl';
+    }
+    return '/aufgaben';
+  }, [setupStatus]);
+
   const value = useMemo<ContextValue>(
     () => ({
       session,
+      setupStatus,
+      nextSetupRoute,
       questions,
       initiatorResult,
       partnerResult,
@@ -175,6 +249,7 @@ export function MentalLoadFlowProvider({ children }: { children: ReactNode }) {
         setSession((prev) => ({
           ...prev,
           anonymousQuizSession: { ...prev.anonymousQuizSession, childrenAgeGroups: groups },
+          needsQuizRefresh: prev.setupCompleted ? true : prev.needsQuizRefresh,
         }));
       },
       saveAnswer: (role, answer) => {
@@ -203,6 +278,7 @@ export function MentalLoadFlowProvider({ children }: { children: ReactNode }) {
             ...prev.pairOrHouseholdContext,
             inviteStatus: role === 'partner' ? 'completed' : prev.pairOrHouseholdContext.inviteStatus,
           },
+          needsQuizRefresh: role === 'initiator' ? false : prev.needsQuizRefresh,
         }));
       },
       saveInitiatorUser: (profile) => setSession((prev) => ({ ...prev, initiatorUser: profile })),
@@ -252,7 +328,7 @@ export function MentalLoadFlowProvider({ children }: { children: ReactNode }) {
           },
         })),
     }),
-    [initiatorResult, partnerResult, questions, session, sharedResult],
+    [initiatorResult, nextSetupRoute, partnerResult, questions, session, setupStatus, sharedResult],
   );
 
   return <MentalLoadFlowContext.Provider value={value}>{children}</MentalLoadFlowContext.Provider>;
