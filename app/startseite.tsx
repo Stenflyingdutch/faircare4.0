@@ -225,7 +225,12 @@ export default function StartseiteScreen() {
 
         {activeTab === 'aufgaben' && (
           <ScrollView contentContainerStyle={styles.container}>
-            <Text style={styles.title}>Aufgaben</Text>
+            <View style={styles.headerRow}>
+              <Text style={styles.title}>Aufgaben</Text>
+              <Pressable onPress={() => router.push('/aufgaben-katalog' as never)}>
+                <Text style={styles.link}>Aufgabenkatalog</Text>
+              </Pressable>
+            </View>
 
             <View style={styles.card}>
               <Text style={styles.cardTitle}>Neue Aufgabe hinzufügen</Text>
@@ -386,8 +391,8 @@ const styles = StyleSheet.create({
   dropdownMenu: { borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 10, overflow: 'hidden' },
   dropdownItem: { padding: 10, backgroundColor: '#fff' },
   notesInput: { borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 10, padding: 10, backgroundColor: '#fff', minHeight: 90 },
-  ownerRow: { flexDirection: 'row', gap: 10, flexWrap: 'wrap' },
-  ownerBubble: { borderWidth: 1, borderColor: '#93c5fd', backgroundColor: '#eff6ff', borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8 },
+  ownerRow: { gap: 10 },
+  ownerBubble: { width: '100%', borderWidth: 1, borderColor: '#93c5fd', backgroundColor: '#eff6ff', borderRadius: 999, paddingHorizontal: 14, paddingVertical: 10, alignItems: 'center' },
   ownerBubbleActive: { backgroundColor: '#dbeafe', borderColor: '#2563eb' },
   ownerBubbleText: { color: '#1d4ed8', fontWeight: '700' },
   ownerBubbleTextActive: { color: '#1e3a8a' },

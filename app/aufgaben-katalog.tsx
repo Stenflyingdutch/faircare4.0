@@ -6,39 +6,46 @@ import { useMentalLoadFlow } from '@/contexts/MentalLoadFlowContext';
 
 export default function AufgabenKatalogScreen() {
   const { addTask } = useMentalLoadFlow();
-  const [activeCategory, setActiveCategory] = useState<string>(TASK_CATEGORIES[0]);
+  const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>Aufgabenkatalog</Text>
       <Text style={styles.text}>Kategorien auswählen und Aufgaben übernehmen.</Text>
 
-      <View style={styles.row}>
-        {TASK_CATEGORIES.map((category) => (
-          <Pressable
-            key={category}
-            style={[styles.chip, activeCategory === category && styles.chipActive]}
-            onPress={() => setActiveCategory(category)}
-          >
-            <Text>{category}</Text>
-          </Pressable>
-        ))}
-      </View>
+      {TASK_CATEGORIES.map((category) => {
+        const isExpanded = expandedCategory === category;
+        return (
+          <View key={category} style={styles.categorySection}>
+            <Pressable
+              style={[styles.categoryHeader, isExpanded && styles.categoryHeaderActive]}
+              onPress={() => setExpandedCategory(isExpanded ? null : category)}
+            >
+              <Text style={styles.categoryTitle}>{category}</Text>
+              <Text style={styles.categoryCaret}>{isExpanded ? '▴' : '▾'}</Text>
+            </Pressable>
 
-      {TASK_CATALOG_BY_CATEGORY[activeCategory].map((task) => (
-        <View key={task} style={styles.card}>
-          <Text style={styles.cardTitle}>{task}</Text>
-          <Pressable
-            style={styles.primary}
-            onPress={() => {
-              addTask(task, null, activeCategory);
-              router.back();
-            }}
-          >
-            <Text style={styles.primaryText}>Aufgabe übernehmen</Text>
-          </Pressable>
-        </View>
-      ))}
+            {isExpanded && (
+              <View style={styles.categoryContent}>
+                {TASK_CATALOG_BY_CATEGORY[category].map((task) => (
+                  <View key={task} style={styles.card}>
+                    <Text style={styles.cardTitle}>{task}</Text>
+                    <Pressable
+                      style={styles.primary}
+                      onPress={() => {
+                        addTask(task, null, category);
+                        router.back();
+                      }}
+                    >
+                      <Text style={styles.primaryText}>Aufgabe übernehmen</Text>
+                    </Pressable>
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
+        );
+      })}
     </ScrollView>
   );
 }
@@ -47,9 +54,12 @@ const styles = StyleSheet.create({
   container: { padding: 24, gap: 10 },
   title: { fontSize: 30, fontWeight: '700' },
   text: { color: '#334155' },
-  row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: { borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 },
-  chipActive: { borderColor: '#2563eb', backgroundColor: '#dbeafe' },
+  categorySection: { borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 10, overflow: 'hidden' },
+  categoryHeader: { padding: 12, backgroundColor: '#fff', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  categoryHeaderActive: { backgroundColor: '#eff6ff' },
+  categoryTitle: { fontWeight: '700', color: '#0f172a' },
+  categoryCaret: { color: '#334155', fontSize: 18 },
+  categoryContent: { padding: 10, gap: 8, backgroundColor: '#f8fafc' },
   card: { borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 10, padding: 12, gap: 8 },
   cardTitle: { fontWeight: '700' },
   primary: { backgroundColor: '#2563eb', borderRadius: 8, padding: 10 },
