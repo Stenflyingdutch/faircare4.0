@@ -1,6 +1,7 @@
 import { Stack } from 'expo-router';
 import { ActivityIndicator, View } from 'react-native';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import { MentalLoadFlowProvider } from '@/contexts/MentalLoadFlowContext';
 
 function RootNavigation() {
   const { loading } = useAuth();
@@ -14,21 +15,25 @@ function RootNavigation() {
   }
 
   return (
-    <Stack
-      screenOptions={{
-        headerTitleAlign: 'center',
-      }}
-    >
+    <Stack screenOptions={{ headerTitleAlign: 'center' }}>
       <Stack.Screen name="index" options={{ headerShown: false }} />
-      <Stack.Screen name="anmelden" options={{ title: 'Anmelden' }} />
-      <Stack.Screen name="registrieren" options={{ title: 'Registrieren' }} />
+      <Stack.Screen name="kinderanzahl" options={{ title: 'Kinderanzahl' }} />
+      <Stack.Screen name="altersgruppen" options={{ title: 'Altersgruppen' }} />
+      <Stack.Screen name="quiz-intro" options={{ title: 'Quiz Intro' }} />
+      <Stack.Screen name="quiz" options={{ title: 'Mental-Load Quiz' }} />
+      <Stack.Screen name="quiz-teaser" options={{ title: 'Quiz Ergebnis' }} />
+      <Stack.Screen name="registrieren" options={{ title: 'Ergebnis freischalten' }} />
+      <Stack.Screen name="eigenes-ergebnis" options={{ title: 'Dein Ergebnis' }} />
+      <Stack.Screen name="partner-einladen" options={{ title: 'Partner einladen' }} />
+      <Stack.Screen name="invite/[token]" options={{ title: 'Einladung' }} />
+      <Stack.Screen name="gemeinsames-ergebnis" options={{ title: 'Gemeinsames Ergebnis' }} />
+      <Stack.Screen name="ziele-auswahl" options={{ title: 'Ziele' }} />
+      <Stack.Screen name="ziel-fokus" options={{ title: 'Ziel-Fokus' }} />
+      <Stack.Screen name="aufgaben" options={{ title: 'Aufgaben' }} />
+      <Stack.Screen name="aufgaben-bestaetigung" options={{ title: 'Bestätigung' }} />
+      <Stack.Screen name="weekly-review" options={{ title: 'Weekly Review' }} />
       <Stack.Screen name="startseite" options={{ title: 'Startseite' }} />
-      <Stack.Screen name="familie-erstellen" options={{ title: 'Familie erstellen' }} />
-      <Stack.Screen name="familie-beitreten" options={{ title: 'Familie beitreten' }} />
-      <Stack.Screen name="kind-anlegen" options={{ title: 'Kind anlegen' }} />
-      <Stack.Screen name="quiz" options={{ title: 'Fairness-Quiz' }} />
-      <Stack.Screen name="ergebnisse" options={{ title: 'Ergebnisse' }} />
-      <Stack.Screen name="karten" options={{ title: 'Karten' }} />
+      <Stack.Screen name="anmelden" options={{ title: 'Anmelden' }} />
     </Stack>
   );
 }
@@ -36,7 +41,9 @@ function RootNavigation() {
 export default function RootLayout() {
   return (
     <AuthProvider>
-      <RootNavigation />
+      <MentalLoadFlowProvider>
+        <RootNavigation />
+      </MentalLoadFlowProvider>
     </AuthProvider>
   );
 }

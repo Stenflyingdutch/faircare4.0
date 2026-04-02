@@ -2,6 +2,89 @@ import { Timestamp } from 'firebase/firestore';
 
 export type FirestoreDate = Timestamp;
 
+export interface AnonymousQuizSession {
+  sessionId: string;
+  childrenCount: number;
+  childrenAgeGroups: string[];
+  pairOrHouseholdContext: string;
+  inviteToken: string | null;
+  createdAt: FirestoreDate;
+  updatedAt: FirestoreDate;
+}
+
+export interface QuizAnswer {
+  answerId: string;
+  anonymousQuizSession: string;
+  userId: string | null;
+  questionId: string;
+  category: string;
+  answer: 'ich' | 'fifty' | 'partner';
+  stressLevel: number | null;
+  updatedAt: FirestoreDate;
+}
+
+export interface PairOrHouseholdContext {
+  householdId: string;
+  initiatorUser: string | null;
+  partnerUser: string | null;
+  inviteToken: string;
+  inviteStatus: 'pending' | 'accepted' | 'completed';
+  childrenCount: number;
+  childrenAgeGroups: string[];
+  createdAt: FirestoreDate;
+}
+
+export interface IndividualResult {
+  resultId: string;
+  userId: string;
+  pairOrHouseholdContext: string;
+  mentalLoadShare: number;
+  summaryBullets: string[];
+  createdAt: FirestoreDate;
+}
+
+export interface SharedResult {
+  resultId: string;
+  pairOrHouseholdContext: string;
+  initiatorShare: number;
+  partnerShare: number;
+  differingPerceptionAreas: string[];
+  missingOwnershipAreas: string[];
+  createdAt: FirestoreDate;
+}
+
+export interface Goal {
+  goalId: string;
+  pairOrHouseholdContext: string;
+  label: string;
+  goalStatus: 'active' | 'reached' | 'partial' | 'not_reached';
+  createdAt: FirestoreDate;
+}
+
+export interface TaskItem {
+  taskId: string;
+  pairOrHouseholdContext: string;
+  title: string;
+  taskOwner: string | null;
+  createdAt: FirestoreDate;
+}
+
+export interface WeeklyReview {
+  weeklyReviewId: string;
+  pairOrHouseholdContext: string;
+  startedAt: FirestoreDate;
+  completedAt: FirestoreDate | null;
+  notificationState: 'scheduled' | 'shown' | 'dismissed';
+}
+
+export interface WeeklyReviewAnswer {
+  answerId: string;
+  weeklyReviewId: string;
+  section: 'good' | 'difficult' | 'changes';
+  values: string[];
+  createdAt: FirestoreDate;
+}
+
 export interface UserProfile {
   uid: string;
   email: string;
@@ -23,98 +106,5 @@ export interface ChildProfile {
   familyId: string;
   name: string;
   birthDate: string;
-  createdAt: FirestoreDate;
-}
-
-export interface QuizAnswer {
-  familyId: string;
-  userId: string;
-  category: string;
-  questionId: string;
-  doesIt: string;
-  thinksAboutIt: string;
-  satisfaction: 'unhappy' | 'neutral' | 'happy';
-  updatedAt: FirestoreDate;
-}
-
-export interface ResultItem {
-  resultId: string;
-  familyId: string;
-  userIds: string[];
-  scoresPerUser: Record<string, {
-    taskLoadScore: number;
-    mentalLoadScore: number;
-    satisfactionScore: number;
-  }>;
-  mismatchQuestions: Array<{
-    questionId: string;
-    category: string;
-    prompt: string;
-    mismatchScore: number;
-    dissatisfactionScore: number;
-    conflictScore: number;
-  }>;
-  conflictQuestions: Array<{
-    questionId: string;
-    category: string;
-    prompt: string;
-    mismatchScore: number;
-    dissatisfactionScore: number;
-    conflictScore: number;
-  }>;
-  topConflictCategories: Array<{
-    category: string;
-    score: number;
-  }>;
-  createdAt: FirestoreDate;
-}
-
-export interface TaskCard {
-  taskCardId: string;
-  familyId: string;
-  category: string;
-  title: string;
-  description: string;
-  thinkingTasks: string[];
-  doingTasks: string[];
-  relevanceStatus: 'active' | 'discarded';
-  ownershipStatus: 'unassigned' | 'assigned' | 'discarded';
-  assignedTo: string | null;
-  suggestedOwner: string | null;
-  createdAt: FirestoreDate;
-  updatedAt: FirestoreDate;
-}
-
-export interface TaskAssignment {
-  assignmentId: string;
-  familyId: string;
-  taskCardId: string;
-  assignedToUserId: string;
-  dueDate: string;
-  createdAt: FirestoreDate;
-}
-
-export interface TodoItem {
-  todoId: string;
-  familyId: string;
-  title: string;
-  done: boolean;
-  createdAt: FirestoreDate;
-}
-
-export interface MentalLoadItem {
-  mentalLoadItemId: string;
-  familyId: string;
-  title: string;
-  ownerUserId: string;
-  createdAt: FirestoreDate;
-}
-
-export interface Checkin {
-  checkinId: string;
-  familyId: string;
-  userId: string;
-  mood: string;
-  note: string;
   createdAt: FirestoreDate;
 }
