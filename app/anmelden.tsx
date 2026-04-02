@@ -11,14 +11,14 @@ export default function AnmeldenScreen() {
   const [status, setStatus] = useState('');
 
   if (user) {
-    return <Redirect href={'/startseite' as never} />;
+    return <Redirect href={{ pathname: '/startseite', params: { fromLogin: 'true' } } as never} />;
   }
 
   const handleSubmit = async () => {
     try {
       setStatus('Login läuft ...');
       await login(email.trim(), password);
-      router.replace('/startseite' as never);
+      router.replace({ pathname: '/startseite', params: { fromLogin: 'true' } } as never);
     } catch (error) {
       setStatus(`Fehler: ${getGermanFirebaseError(error)}`);
     }

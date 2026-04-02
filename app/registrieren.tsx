@@ -3,45 +3,98 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMentalLoadFlow } from '@/contexts/MentalLoadFlowContext';
+import { saveMentalLoadAnswers } from '@/services/mentalLoadPersistenceService';
+import { createFamily, joinFamilyByInviteCode } from '@/services/familyService';
+import { auth } from '@/lib/firebase';
 import { getGermanFirebaseError } from '@/lib/firebaseError';
 
 export default function RegistrierungScreen() {
   const { user, register } = useAuth();
-  const { saveInitiatorUser, savePartnerUser } = useMentalLoadFlow();
+  const { session, saveInitiatorUser, savePartnerUser, setInviteCode, setPendingInviteCode } = useMentalLoadFlow();
   const params = useLocalSearchParams<{ mode?: string }>();
   const role = params.mode === 'partner' ? 'partner' : 'initiator';
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [passwordRepeat, setPasswordRepeat] = useState('');
   const [status, setStatus] = useState('');
 
-  if (user) {
+  const continueWithProfile = async (profile: { id: string; displayName: string; email: string }) => {
+    if (role === 'partner') {
+      savePartnerUser(profile);
+    } else {
+      saveInitiatorUser(profile);
+    }
+
+    const currentUid = auth.currentUser?.uid ?? user?.uid;
+
+    if (currentUid) {
+      if (role === 'initiator') {
+        try {
+          const { inviteCode } = await createFamily({ uid: currentUid, familyName: `Familie ${profile.displayName}` });
+          setInviteCode(inviteCode);
+        } catch {
+          // Familie existiert evtl. bereits.
+        }
+      }
+
+      if (role === 'partner' && session.pendingInviteCode) {
+        try {
+          await joinFamilyByInviteCode({ uid: currentUid, inviteCode: session.pendingInviteCode });
+          setPendingInviteCode(null);
+        } catch {
+          setStatus('Der Einladungscode konnte nicht zugeordnet werden. Bitte prüfe den Code erneut.');
+        }
+      }
+
+      await saveMentalLoadAnswers(currentUid, {
+        initiatorAnswers: session.anonymousQuizSession.initiatorAnswers,
+        partnerAnswers: session.anonymousQuizSession.partnerAnswers,
+        initiatorQuizCompleted: session.anonymousQuizSession.initiatorQuizCompleted,
+        partnerQuizCompleted: session.anonymousQuizSession.partnerQuizCompleted,
+      });
+    }
+
+    router.replace({ pathname: '/eigenes-ergebnis', params: { mode: role } } as never);
+  };
+
+  if (user && !user.email) {
     return <Redirect href={'/startseite' as never} />;
   }
 
   const handleContinue = async () => {
     setStatus('Registrierung läuft ...');
     try {
-      await register(email.trim(), password.trim(), displayName.trim());
-      const profile = { id: email.trim().toLowerCase(), displayName: displayName.trim(), email: email.trim() };
-
-      if (role === 'partner') {
-        savePartnerUser(profile);
-      } else {
-        saveInitiatorUser(profile);
+      if (!user?.email && password !== passwordRepeat) {
+        setStatus('Fehler: Die Kennwörter stimmen nicht überein.');
+        return;
+      }
+      if (user?.email) {
+        const profile = {
+          id: user.uid,
+          displayName: displayName.trim() || user.displayName || user.email.split('@')[0],
+          email: user.email,
+        };
+        await continueWithProfile(profile);
+        return;
       }
 
-      router.replace({ pathname: '/eigenes-ergebnis', params: { mode: role } } as never);
+      await register(email.trim(), password.trim(), displayName.trim());
+      const profile = { id: email.trim().toLowerCase(), displayName: displayName.trim(), email: email.trim() };
+      await continueWithProfile(profile);
     } catch (error) {
       setStatus(`Fehler: ${getGermanFirebaseError(error)}`);
     }
   };
 
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Ergebnis freischalten</Text>
       <Text style={styles.text}>Speichere dein Ergebnis und vergleiche es später mit deinem Partner.</Text>
+      {user?.email && <Text style={styles.text}>Du bist bereits eingeloggt. Mit Weiter verknüpfst du dein Ergebnis mit diesem Konto.</Text>}
       <TextInput placeholder="Vorname" style={styles.input} value={displayName} onChangeText={setDisplayName} />
+      {!user?.email && (<>
       <TextInput
         placeholder="E-Mail-Adresse"
         style={styles.input}
@@ -51,6 +104,8 @@ export default function RegistrierungScreen() {
         autoCapitalize="none"
       />
       <TextInput placeholder="Kennwort" style={styles.input} secureTextEntry value={password} onChangeText={setPassword} />
+      <TextInput placeholder="Kennwort wiederholen" style={styles.input} secureTextEntry value={passwordRepeat} onChangeText={setPasswordRepeat} />
+      </>)}
       <Pressable style={styles.button} onPress={handleContinue}>
         <Text style={styles.buttonText}>Weiter</Text>
       </Pressable>

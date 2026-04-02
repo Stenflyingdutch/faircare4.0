@@ -3,21 +3,25 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useMentalLoadFlow } from '@/contexts/MentalLoadFlowContext';
 
+function isInviteCodeFormatValid(code: string) {
+  return /^[A-Z0-9]{6}$/.test(code);
+}
+
 export default function FamilieBeitretenScreen() {
-  const { claimInvite } = useMentalLoadFlow();
+  const { setPendingInviteCode } = useMentalLoadFlow();
   const [inviteCode, setInviteCode] = useState('');
   const [status, setStatus] = useState('');
 
   const handleContinue = () => {
     const code = inviteCode.trim().toUpperCase();
-    const valid = claimInvite(code);
 
-    if (!valid) {
+    if (!isInviteCodeFormatValid(code)) {
       setStatus('Der Code ist ungültig. Bitte prüfe den Einladungscode.');
       return;
     }
 
-    setStatus('Code erkannt. Quiz wird gestartet ...');
+    setPendingInviteCode(code);
+    setStatus('Code gespeichert. Quiz wird gestartet ...');
     router.replace({ pathname: '/quiz-intro', params: { mode: 'partner' } } as never);
   };
 

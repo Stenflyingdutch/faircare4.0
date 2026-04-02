@@ -31,9 +31,11 @@ function RootNavigation() {
       <Stack.Screen name="ziele-auswahl" options={{ title: 'Ziele' }} />
       <Stack.Screen name="ziel-fokus" options={{ title: 'Ziel-Fokus' }} />
       <Stack.Screen name="aufgaben" options={{ title: 'Aufgaben' }} />
+      <Stack.Screen name="aufgaben-katalog" options={{ title: 'Aufgabenkatalog' }} />
       <Stack.Screen name="aufgaben-bestaetigung" options={{ title: 'Bestätigung' }} />
       <Stack.Screen name="weekly-review" options={{ title: 'Weekly Review' }} />
       <Stack.Screen name="startseite" options={{ title: 'Startseite' }} />
+      <Stack.Screen name="einstellungen" options={{ title: 'Einstellungen' }} />
       <Stack.Screen name="familie-beitreten" options={{ title: 'Code eingeben' }} />
       <Stack.Screen name="anmelden" options={{ title: 'Einloggen' }} />
     </Stack>

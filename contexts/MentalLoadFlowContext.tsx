@@ -30,12 +30,28 @@ export type TaskItem = {
   id: string;
   title: string;
   owner: 'initiator' | 'partner' | null;
+  status: 'offen' | 'aktiv' | 'pausiert';
+  goal: string | null;
+  details: string;
+  category: string;
 };
 
 export type WeeklyReviewAnswer = {
   positives: string[];
   challenges: string[];
   changes: string[];
+};
+
+export type SetupStatus = {
+  hatQuizAbgeschlossen: boolean;
+  istRegistriert: boolean;
+  hatIndividuellesErgebnis: boolean;
+  partnerVerbunden: boolean;
+  partnerHatQuizAbgeschlossen: boolean;
+  gemeinsamesErgebnisVerfuegbar: boolean;
+  zieleFestgelegt: boolean;
+  aufgabenZugeordnet: boolean;
+  setupAbgeschlossen: boolean;
 };
 
 export type MentalLoadSession = {
@@ -57,6 +73,8 @@ export type MentalLoadSession = {
   weeklyReview: { lastCompletedAt: string | null; upcomingAt: string | null };
   weeklyReviewAnswers: WeeklyReviewAnswer[];
   setupCompleted: boolean;
+  needsQuizRefresh: boolean;
+  pendingInviteCode: string | null;
 };
 
 function generateInviteCode(length = 6) {
@@ -92,9 +110,9 @@ const defaultSession: MentalLoadSession = {
   goals: [],
   goalStatus: 'not_started',
   tasks: [
-    { id: 'task_1', title: 'Arzttermine und Gesundheit koordinieren', owner: null },
-    { id: 'task_2', title: 'Termine mit Kita oder Schule im Blick halten', owner: null },
-    { id: 'task_3', title: 'Alltagsvorbereitung für die Woche planen', owner: null },
+    { id: 'task_1', title: 'Arzttermine und Gesundheit koordinieren', owner: null, status: 'offen', goal: null, details: '', category: 'Gesundheit' },
+    { id: 'task_2', title: 'Termine mit Kita oder Schule im Blick halten', owner: null, status: 'offen', goal: null, details: '', category: 'Organisation' },
+    { id: 'task_3', title: 'Alltagsvorbereitung für die Woche planen', owner: null, status: 'offen', goal: null, details: '', category: 'Alltag' },
   ],
   weeklyReview: {
     lastCompletedAt: null,
@@ -102,10 +120,14 @@ const defaultSession: MentalLoadSession = {
   },
   weeklyReviewAnswers: [],
   setupCompleted: false,
+  needsQuizRefresh: false,
+  pendingInviteCode: null,
 };
 
 type ContextValue = {
   session: MentalLoadSession;
+  setupStatus: SetupStatus;
+  nextSetupRoute: '/quiz-intro' | '/registrieren' | '/eigenes-ergebnis' | '/partner-einladen' | '/gemeinsames-ergebnis' | '/ziele-auswahl' | '/aufgaben';
   questions: MentalLoadQuestion[];
   initiatorResult: { totalScore: number; categoryScores: CategoryScore[]; summaryBullets: string[] };
   partnerResult: { totalScore: number; categoryScores: CategoryScore[]; summaryBullets: string[] };
@@ -118,9 +140,17 @@ type ContextValue = {
   savePartnerUser: (profile: { id: string; displayName: string; email: string }) => void;
   claimInvite: (token: string) => boolean;
   getInviteCode: () => string;
+  setInviteCode: (code: string) => void;
+  setPendingInviteCode: (code: string | null) => void;
   setGoals: (goals: GoalOption[]) => void;
+  addGoal: (goal: string) => void;
+  updateGoal: (index: number, goal: string) => void;
+  removeGoal: (index: number) => void;
   setTaskOwner: (taskId: string, owner: TaskItem['owner']) => void;
-  addTask: (title: string, owner?: TaskItem['owner']) => void;
+  updateTask: (taskId: string, patch: Partial<Omit<TaskItem, 'id'>>) => void;
+  removeTask: (taskId: string) => void;
+  addTask: (title: string, owner?: TaskItem['owner'], category?: string, details?: string) => void;
+  hydrateAnswers: (role: 'initiator' | 'partner', answers: MentalLoadAnswer[], quizCompleted?: boolean) => void;
   completeSetup: () => void;
   saveWeeklyReview: (payload: WeeklyReviewAnswer) => void;
 };
@@ -158,9 +188,67 @@ export function MentalLoadFlowProvider({ children }: { children: ReactNode }) {
     return buildSharedResult(session.anonymousQuizSession.initiatorAnswers, session.anonymousQuizSession.partnerAnswers);
   }, [session.anonymousQuizSession]);
 
+  const setupStatus = useMemo<SetupStatus>(() => {
+    const hatQuizAbgeschlossen = session.anonymousQuizSession.initiatorQuizCompleted;
+    const istRegistriert = Boolean(session.initiatorUser);
+    const hatIndividuellesErgebnis = session.anonymousQuizSession.initiatorAnswers.length > 0;
+    const partnerVerbunden =
+      session.pairOrHouseholdContext.inviteStatus === 'accepted' ||
+      session.pairOrHouseholdContext.inviteStatus === 'completed' ||
+      Boolean(session.partnerUser);
+    const partnerHatQuizAbgeschlossen = session.anonymousQuizSession.partnerQuizCompleted;
+    const gemeinsamesErgebnisVerfuegbar = Boolean(sharedResult);
+    const zieleFestgelegt = session.goals.length > 0;
+    const aufgabenZugeordnet = session.tasks.every((task) => task.owner !== null);
+
+    return {
+      hatQuizAbgeschlossen,
+      istRegistriert,
+      hatIndividuellesErgebnis,
+      partnerVerbunden,
+      partnerHatQuizAbgeschlossen,
+      gemeinsamesErgebnisVerfuegbar,
+      zieleFestgelegt,
+      aufgabenZugeordnet,
+      setupAbgeschlossen:
+        hatQuizAbgeschlossen &&
+        istRegistriert &&
+        hatIndividuellesErgebnis &&
+        partnerVerbunden &&
+        partnerHatQuizAbgeschlossen &&
+        gemeinsamesErgebnisVerfuegbar &&
+        zieleFestgelegt &&
+        aufgabenZugeordnet,
+    };
+  }, [session, sharedResult]);
+
+  const nextSetupRoute = useMemo<ContextValue['nextSetupRoute']>(() => {
+    if (!setupStatus.hatQuizAbgeschlossen) {
+      return '/quiz-intro';
+    }
+    if (!setupStatus.istRegistriert) {
+      return '/registrieren';
+    }
+    if (!setupStatus.hatIndividuellesErgebnis) {
+      return '/eigenes-ergebnis';
+    }
+    if (!setupStatus.partnerVerbunden) {
+      return '/partner-einladen';
+    }
+    if (!setupStatus.gemeinsamesErgebnisVerfuegbar) {
+      return '/gemeinsames-ergebnis';
+    }
+    if (!setupStatus.zieleFestgelegt) {
+      return '/ziele-auswahl';
+    }
+    return '/aufgaben';
+  }, [setupStatus]);
+
   const value = useMemo<ContextValue>(
     () => ({
       session,
+      setupStatus,
+      nextSetupRoute,
       questions,
       initiatorResult,
       partnerResult,
@@ -175,6 +263,7 @@ export function MentalLoadFlowProvider({ children }: { children: ReactNode }) {
         setSession((prev) => ({
           ...prev,
           anonymousQuizSession: { ...prev.anonymousQuizSession, childrenAgeGroups: groups },
+          needsQuizRefresh: prev.setupCompleted ? true : prev.needsQuizRefresh,
         }));
       },
       saveAnswer: (role, answer) => {
@@ -203,6 +292,7 @@ export function MentalLoadFlowProvider({ children }: { children: ReactNode }) {
             ...prev.pairOrHouseholdContext,
             inviteStatus: role === 'partner' ? 'completed' : prev.pairOrHouseholdContext.inviteStatus,
           },
+          needsQuizRefresh: role === 'initiator' ? false : prev.needsQuizRefresh,
         }));
       },
       saveInitiatorUser: (profile) => setSession((prev) => ({ ...prev, initiatorUser: profile })),
@@ -223,13 +313,38 @@ export function MentalLoadFlowProvider({ children }: { children: ReactNode }) {
         return valid;
       },
       getInviteCode: () => session.pairOrHouseholdContext.inviteToken,
+      setInviteCode: (code) =>
+        setSession((prev) => ({
+          ...prev,
+          pairOrHouseholdContext: { ...prev.pairOrHouseholdContext, inviteToken: code, inviteStatus: 'pending' },
+        })),
+      setPendingInviteCode: (code) => setSession((prev) => ({ ...prev, pendingInviteCode: code })),
       setGoals: (goals) => setSession((prev) => ({ ...prev, goals, goalStatus: 'in_progress' })),
+      addGoal: (goal) =>
+        setSession((prev) => ({ ...prev, goals: [...prev.goals, goal as GoalOption], goalStatus: 'in_progress' })),
+      updateGoal: (index, goal) =>
+        setSession((prev) => ({
+          ...prev,
+          goals: prev.goals.map((item, current) => (current === index ? (goal as GoalOption) : item)),
+        })),
+      removeGoal: (index) =>
+        setSession((prev) => ({ ...prev, goals: prev.goals.filter((_, current) => current !== index) })),
       setTaskOwner: (taskId, owner) =>
         setSession((prev) => ({
           ...prev,
-          tasks: prev.tasks.map((task) => (task.id === taskId ? { ...task, owner } : task)),
+          tasks: prev.tasks.map((task) => (task.id === taskId ? { ...task, owner, status: owner ? 'aktiv' : task.status } : task)),
         })),
-      addTask: (title, owner = null) =>
+      updateTask: (taskId, patch) =>
+        setSession((prev) => ({
+          ...prev,
+          tasks: prev.tasks.map((task) => (task.id === taskId ? { ...task, ...patch } : task)),
+        })),
+      removeTask: (taskId) =>
+        setSession((prev) => ({
+          ...prev,
+          tasks: prev.tasks.filter((task) => task.id !== taskId),
+        })),
+      addTask: (title, owner = null, category = 'Allgemein', details = '') =>
         setSession((prev) => ({
           ...prev,
           tasks: [
@@ -238,8 +353,25 @@ export function MentalLoadFlowProvider({ children }: { children: ReactNode }) {
               id: `task_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
               title: title.trim(),
               owner,
+              status: owner ? 'aktiv' : 'offen',
+              goal: prev.goals[0] ?? null,
+              details,
+              category,
             },
           ],
+        })),
+      hydrateAnswers: (role, answers, quizCompleted = false) =>
+        setSession((prev) => ({
+          ...prev,
+          anonymousQuizSession: {
+            ...prev.anonymousQuizSession,
+            initiatorAnswers: role === 'initiator' ? answers : prev.anonymousQuizSession.initiatorAnswers,
+            partnerAnswers: role === 'partner' ? answers : prev.anonymousQuizSession.partnerAnswers,
+            initiatorQuizCompleted:
+              role === 'initiator' ? quizCompleted || prev.anonymousQuizSession.initiatorQuizCompleted : prev.anonymousQuizSession.initiatorQuizCompleted,
+            partnerQuizCompleted:
+              role === 'partner' ? quizCompleted || prev.anonymousQuizSession.partnerQuizCompleted : prev.anonymousQuizSession.partnerQuizCompleted,
+          },
         })),
       completeSetup: () => setSession((prev) => ({ ...prev, goalStatus: 'done', setupCompleted: true })),
       saveWeeklyReview: (payload) =>
@@ -252,7 +384,7 @@ export function MentalLoadFlowProvider({ children }: { children: ReactNode }) {
           },
         })),
     }),
-    [initiatorResult, partnerResult, questions, session, sharedResult],
+    [initiatorResult, nextSetupRoute, partnerResult, questions, session, setupStatus, sharedResult],
   );
 
   return <MentalLoadFlowContext.Provider value={value}>{children}</MentalLoadFlowContext.Provider>;
