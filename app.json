@@ -12,6 +12,12 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "ios": {
+      "bundleIdentifier": "com.stenflyingdutch.faircare4-0"
+    },
+    "android": {
+      "package": "com.stenflyingdutch.faircare40"
     }
   }
 }
