@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useMentalLoadFlow } from '@/contexts/MentalLoadFlowContext';
 
 const ANSWERS = [
@@ -61,9 +61,13 @@ export default function QuizScreen() {
           <Text style={styles.navText}>Zurück</Text>
         </Pressable>
         <Pressable
-          style={[styles.navButton, !answered.has(question.id) && styles.navDisabled]}
-          disabled={!answered.has(question.id)}
+          style={styles.navButton}
           onPress={() => {
+            if (!answered.has(question.id)) {
+              Alert.alert('Antwort fehlt', 'Bitte wähle zuerst eine Antwort aus.');
+              return;
+            }
+
             if (isLast) {
               completeQuiz(role);
               router.replace({ pathname: '/quiz-teaser', params: { mode: role } } as never);
@@ -94,6 +98,5 @@ const styles = StyleSheet.create({
   stressChip: { padding: 10, borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 999, minWidth: 42, alignItems: 'center' },
   nav: { marginTop: 'auto', flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
   navButton: { flex: 1, backgroundColor: '#2563eb', borderRadius: 10, padding: 12 },
-  navDisabled: { backgroundColor: '#94a3b8' },
   navText: { color: '#fff', textAlign: 'center', fontWeight: '700' },
 });
