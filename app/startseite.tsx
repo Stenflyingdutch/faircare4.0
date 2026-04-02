@@ -1,17 +1,44 @@
-import { Redirect, router } from 'expo-router';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Redirect } from 'expo-router';
+import { useMemo, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMentalLoadFlow } from '@/contexts/MentalLoadFlowContext';
 
+const TASK_CATALOG = [
+  'Arzt- und Vorsorgetermine planen',
+  'Kita-/Schulkommunikation koordinieren',
+  'Wocheneinkauf und Mahlzeiten planen',
+  'Freizeit- und Familienkalender abstimmen',
+  'Kleidung und Vorräte im Blick behalten',
+];
+
 export default function StartseiteScreen() {
   const { logout, user } = useAuth();
-  const { session, sharedResult, initiatorResult } = useMentalLoadFlow();
+  const { session, addTask } = useMentalLoadFlow();
+  const [activeTab, setActiveTab] = useState<'overview' | 'tasks'>('overview');
+  const [newTaskTitle, setNewTaskTitle] = useState('');
 
   if (!user) {
     return <Redirect href={'/' as never} />;
   }
 
-  const partnerDone = session.anonymousQuizSession.partnerQuizCompleted && Boolean(session.partnerUser?.email);
+  const isInitiator = session.initiatorUser?.email?.toLowerCase() === user.email?.toLowerCase();
+  const ownOwner = isInitiator ? 'initiator' : 'partner';
+
+  const ownTasks = useMemo(() => session.tasks.filter((task) => task.owner === ownOwner), [ownOwner, session.tasks]);
+  const partnerTasks = useMemo(
+    () => session.tasks.filter((task) => task.owner && task.owner !== ownOwner),
+    [ownOwner, session.tasks],
+  );
+
+  const addNewTask = () => {
+    const clean = newTaskTitle.trim();
+    if (!clean) {
+      return;
+    }
+    addTask(clean, ownOwner);
+    setNewTaskTitle('');
+  };
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -19,63 +46,110 @@ export default function StartseiteScreen() {
         <Text style={styles.title}>Startseite</Text>
         <Pressable style={styles.logoutSmall} onPress={logout}><Text style={styles.logoutText}>Logout</Text></Pressable>
       </View>
-      <Text style={styles.text}>Hallo {user.email}.</Text>
 
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Individuelles Ergebnis</Text>
-        <Text>Dein Anteil am Mitdenken im Alltag: {initiatorResult.totalScore}%</Text>
-        <Pressable style={styles.inlineButton} onPress={() => router.push('/eigenes-ergebnis' as never)}>
-          <Text style={styles.inlineButtonText}>Individuelles Ergebnis öffnen</Text>
+      <View style={styles.tabRow}>
+        <Pressable style={[styles.tab, activeTab === 'overview' && styles.tabActive]} onPress={() => setActiveTab('overview')}>
+          <Text style={[styles.tabText, activeTab === 'overview' && styles.tabTextActive]}>Übersicht</Text>
+        </Pressable>
+        <Pressable style={[styles.tab, activeTab === 'tasks' && styles.tabActive]} onPress={() => setActiveTab('tasks')}>
+          <Text style={[styles.tabText, activeTab === 'tasks' && styles.tabTextActive]}>Aufgaben</Text>
         </Pressable>
       </View>
 
-      {!partnerDone && (
-        <View style={styles.notification}>
-          <Text style={styles.notificationTitle}>Partner noch nicht fertig</Text>
-          <Text style={styles.text}>Teile den Code mit deinem Partner. Sobald er das Quiz abgeschlossen hat, erscheinen eure gemeinsamen Ergebnisse hier.</Text>
-          <Pressable style={styles.inlineButton} onPress={() => router.push('/einladungscode' as never)}>
-            <Text style={styles.inlineButtonText}>Einladungscode anzeigen</Text>
-          </Pressable>
-          <Pressable style={styles.secondary} onPress={() => router.push('/partner-einladen' as never)}>
-            <Text style={styles.secondaryText}>Partner einladen</Text>
-          </Pressable>
-        </View>
+      {activeTab === 'overview' && (
+        <>
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Eure Ziele</Text>
+            {session.goals.length === 0 && <Text style={styles.text}>Noch keine Ziele hinterlegt.</Text>}
+            {session.goals.map((goal) => (
+              <Text key={goal} style={styles.listItem}>• {goal}</Text>
+            ))}
+          </View>
+
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Deine Aufgaben</Text>
+            {ownTasks.length === 0 && <Text style={styles.text}>Dir sind aktuell keine Aufgaben zugeordnet.</Text>}
+            {ownTasks.map((task) => (
+              <Text key={task.id} style={styles.listItem}>• {task.title}</Text>
+            ))}
+          </View>
+        </>
       )}
 
-      {partnerDone && (
-        <View style={styles.notification}>
-          <Text style={styles.notificationTitle}>Eure gemeinsamen Ergebnisse sind bereit</Text>
-          <Text style={styles.text}>Dein Partner hat das Quiz gemacht. Hier sind eure gemeinsamen Ergebnisse.</Text>
-          <Pressable style={styles.inlineButton} onPress={() => router.push('/gemeinsames-ergebnis' as never)}>
-            <Text style={styles.inlineButtonText}>Gemeinsame Ergebnisse anschauen</Text>
-          </Pressable>
-        </View>
+      {activeTab === 'tasks' && (
+        <>
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Alle Aufgaben</Text>
+            {session.tasks.map((task) => (
+              <View key={task.id} style={styles.taskRow}>
+                <Text style={styles.taskTitle}>{task.title}</Text>
+                <Text style={styles.taskOwner}>
+                  {task.owner === ownOwner ? 'Meine Aufgabe' : task.owner ? 'Partner' : 'Nicht zugeordnet'}
+                </Text>
+              </View>
+            ))}
+          </View>
+
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Neue Aufgabe anlegen</Text>
+            <TextInput
+              placeholder="Aufgabe eingeben"
+              value={newTaskTitle}
+              onChangeText={setNewTaskTitle}
+              style={styles.input}
+            />
+            <Pressable style={styles.primary} onPress={addNewTask}>
+              <Text style={styles.primaryText}>Eigene Aufgabe hinzufügen</Text>
+            </Pressable>
+          </View>
+
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Aufgabenkatalog</Text>
+            {TASK_CATALOG.map((task) => (
+              <View key={task} style={styles.catalogRow}>
+                <Text style={styles.text}>{task}</Text>
+                <Pressable style={styles.secondary} onPress={() => addTask(task, ownOwner)}>
+                  <Text style={styles.secondaryText}>Hinzufügen</Text>
+                </Pressable>
+              </View>
+            ))}
+          </View>
+
+          {partnerTasks.length > 0 && (
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>Partner-Aufgaben</Text>
+              {partnerTasks.map((task) => (
+                <Text key={task.id} style={styles.listItem}>• {task.title}</Text>
+              ))}
+            </View>
+          )}
+        </>
       )}
-
-      <View style={styles.card}><Text style={styles.cardTitle}>Aktive Ziele</Text><Text>{session.goals.join(' · ') || 'Noch keine Ziele'}</Text></View>
-      <View style={styles.card}><Text style={styles.cardTitle}>Aufgaben</Text><Text>{session.tasks.filter((item) => item.owner).length} Aufgaben mit klarer Ownership</Text></View>
-      <View style={styles.card}><Text style={styles.cardTitle}>Weekly Review</Text><Text>{session.weeklyReview.upcomingAt ?? 'Noch nicht geplant'}</Text></View>
-
-      <Pressable style={styles.primary} onPress={() => router.push('/weekly-review' as never)}><Text style={styles.primaryText}>Zur Weekly Review</Text></Pressable>
-      {sharedResult && <Pressable style={styles.primary} onPress={() => router.push('/gemeinsames-ergebnis' as never)}><Text style={styles.primaryText}>Gemeinsame Ergebnisse</Text></Pressable>}
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 24, gap: 10 },
+  container: { padding: 24, gap: 12 },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   title: { fontSize: 30, fontWeight: '700' },
+  card: { borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 10, padding: 12, gap: 8 },
+  cardTitle: { fontWeight: '700', fontSize: 17 },
   text: { color: '#334155' },
-  card: { borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 10, padding: 12, gap: 6 },
-  cardTitle: { fontWeight: '700' },
-  notification: { borderWidth: 1, borderColor: '#93c5fd', backgroundColor: '#eff6ff', borderRadius: 10, padding: 12, gap: 8 },
-  notificationTitle: { fontWeight: '700', color: '#1e3a8a' },
-  inlineButton: { backgroundColor: '#2563eb', borderRadius: 8, padding: 10 },
-  inlineButtonText: { color: '#fff', textAlign: 'center', fontWeight: '700' },
+  listItem: { color: '#0f172a' },
+  tabRow: { flexDirection: 'row', gap: 8 },
+  tab: { flex: 1, borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 10, padding: 10 },
+  tabActive: { backgroundColor: '#dbeafe', borderColor: '#2563eb' },
+  tabText: { textAlign: 'center', fontWeight: '600', color: '#334155' },
+  tabTextActive: { color: '#1d4ed8' },
+  taskRow: { borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 8, padding: 10, gap: 4 },
+  taskTitle: { fontWeight: '600' },
+  taskOwner: { color: '#475569', fontSize: 12 },
+  input: { borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 10, padding: 10, backgroundColor: '#fff' },
+  catalogRow: { borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 8, padding: 10, gap: 8 },
   primary: { backgroundColor: '#2563eb', borderRadius: 10, padding: 12 },
   primaryText: { color: '#fff', textAlign: 'center', fontWeight: '700' },
-  secondary: { borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 8, padding: 10 },
+  secondary: { borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 8, padding: 8 },
   secondaryText: { textAlign: 'center', fontWeight: '600' },
   logoutSmall: { backgroundColor: '#ef4444', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8 },
   logoutText: { color: '#fff', fontWeight: '700' },

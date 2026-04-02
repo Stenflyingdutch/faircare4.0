@@ -120,6 +120,7 @@ type ContextValue = {
   getInviteCode: () => string;
   setGoals: (goals: GoalOption[]) => void;
   setTaskOwner: (taskId: string, owner: TaskItem['owner']) => void;
+  addTask: (title: string, owner?: TaskItem['owner']) => void;
   completeSetup: () => void;
   saveWeeklyReview: (payload: WeeklyReviewAnswer) => void;
 };
@@ -227,6 +228,18 @@ export function MentalLoadFlowProvider({ children }: { children: ReactNode }) {
         setSession((prev) => ({
           ...prev,
           tasks: prev.tasks.map((task) => (task.id === taskId ? { ...task, owner } : task)),
+        })),
+      addTask: (title, owner = null) =>
+        setSession((prev) => ({
+          ...prev,
+          tasks: [
+            ...prev.tasks,
+            {
+              id: `task_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+              title: title.trim(),
+              owner,
+            },
+          ],
         })),
       completeSetup: () => setSession((prev) => ({ ...prev, goalStatus: 'done', setupCompleted: true })),
       saveWeeklyReview: (payload) =>
