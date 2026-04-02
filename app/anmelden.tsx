@@ -18,6 +18,10 @@ export default function AnmeldenScreen() {
     return [session.initiatorUser?.email?.toLowerCase(), session.partnerUser?.email?.toLowerCase()].includes(normalized);
   }, [email, session.initiatorUser?.email, session.partnerUser?.email]);
 
+  const normalizedEmail = email.trim().toLowerCase();
+  const isInitiatorEmail = session.initiatorUser?.email?.toLowerCase() === normalizedEmail;
+  const isPartnerEmail = session.partnerUser?.email?.toLowerCase() === normalizedEmail;
+
   if (user) {
     return <Redirect href={'/startseite' as never} />;
   }
@@ -33,7 +37,12 @@ export default function AnmeldenScreen() {
       await completePasswordSetup(email.trim(), password, email.split('@')[0] || 'Nutzer');
       markPasswordSetupDone(email.trim());
       await login(email.trim(), password);
-      router.replace('/startseite' as never);
+
+      const nextInitiatorDone = session.passwordSetup.initiator || Boolean(isInitiatorEmail);
+      const nextPartnerDone = session.passwordSetup.partner || Boolean(isPartnerEmail);
+      const canOpenSharedResult = session.notificationState.partnerCompleted && nextInitiatorDone && nextPartnerDone;
+
+      router.replace((canOpenSharedResult ? '/gemeinsames-ergebnis' : '/startseite') as never);
     } catch (error) {
       setStatus(`Fehler: ${getGermanFirebaseError(error)}`);
     }
