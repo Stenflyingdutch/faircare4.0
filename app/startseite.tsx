@@ -1,4 +1,4 @@
-import { router, Redirect } from 'expo-router';
+import { router, Redirect, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useAuth } from '@/contexts/AuthContext';
@@ -43,6 +43,7 @@ function setupLabel(route: string) {
 export default function StartseiteScreen() {
   const { user } = useAuth();
   const { session, addTask, setupStatus, nextSetupRoute } = useMentalLoadFlow();
+  const params = useLocalSearchParams<{ fromLogin?: string }>();
   const [activeTab, setActiveTab] = useState<MainTab>('startseite');
   const [newTaskTitle, setNewTaskTitle] = useState('');
 
@@ -65,7 +66,9 @@ export default function StartseiteScreen() {
     setNewTaskTitle('');
   };
 
-  if (!setupStatus.setupAbgeschlossen) {
+  const allowMainFromLogin = params.fromLogin === 'true';
+
+  if (!setupStatus.setupAbgeschlossen && !allowMainFromLogin) {
     return (
       <ScrollView contentContainerStyle={styles.container}>
         <Text style={styles.title}>Startseite</Text>
@@ -101,6 +104,12 @@ export default function StartseiteScreen() {
                 <Text style={styles.iconText}>⚙️</Text>
               </Pressable>
             </View>
+
+            {allowMainFromLogin && !setupStatus.setupAbgeschlossen && (
+              <View style={styles.infoCard}>
+                <Text style={styles.text}>Du bist eingeloggt. Die Hauptnavigation ist verfügbar, auch wenn der lokale Setup-Status noch nicht vollständig geladen ist.</Text>
+              </View>
+            )}
 
             <View style={styles.card}>
               <Text style={styles.cardTitle}>Eure aktiven Ziele</Text>
@@ -221,6 +230,7 @@ const styles = StyleSheet.create({
   container: { padding: 24, gap: 12 },
   title: { fontSize: 30, fontWeight: '700' },
   card: { borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 10, padding: 12, gap: 8 },
+  infoCard: { borderWidth: 1, borderColor: '#bfdbfe', backgroundColor: '#eff6ff', borderRadius: 10, padding: 12 },
   cardTitle: { fontWeight: '700', fontSize: 17 },
   text: { color: '#334155' },
   listItem: { color: '#0f172a' },
