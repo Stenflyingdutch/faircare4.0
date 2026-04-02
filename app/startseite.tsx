@@ -23,10 +23,12 @@ const GOAL_STATUS: Record<string, string> = {
 
 export default function StartseiteScreen() {
   const { user } = useAuth();
-  const { session, addTask, setupStatus, getInviteCode } = useMentalLoadFlow();
+  const { session, addTask, updateTask, removeTask, setupStatus, getInviteCode, addGoal, updateGoal, removeGoal } = useMentalLoadFlow();
   const params = useLocalSearchParams<{ fromLogin?: string }>();
   const [activeTab, setActiveTab] = useState<MainTab>('startseite');
   const [newTaskTitle, setNewTaskTitle] = useState('');
+  const [goalDraft, setGoalDraft] = useState('');
+  const [editingGoalIndex, setEditingGoalIndex] = useState<number | null>(null);
 
   if (!user) {
     return <Redirect href={'/' as never} />;
@@ -34,6 +36,8 @@ export default function StartseiteScreen() {
 
   const isInitiator = session.initiatorUser?.email?.toLowerCase() === user.email?.toLowerCase();
   const ownOwner = isInitiator ? 'initiator' : 'partner';
+  const initiatorName = session.initiatorUser?.displayName || 'Initiator';
+  const partnerName = session.partnerUser?.displayName || 'Partner';
   const ownTasks = useMemo(() => session.tasks.filter((task) => task.owner === ownOwner), [ownOwner, session.tasks]);
   const allAssignedTasks = useMemo(() => session.tasks.filter((task) => task.owner !== null), [session.tasks]);
   const allowMainFromLogin = params.fromLogin === 'true';
@@ -159,14 +163,37 @@ export default function StartseiteScreen() {
         {activeTab === 'ziele' && (
           <ScrollView contentContainerStyle={styles.container}>
             <Text style={styles.title}>Eure Ziele</Text>
-            {session.goals.map((goal) => (
-              <View key={goal} style={styles.card}>
+            {session.goals.map((goal, index) => (
+              <View key={`${goal}-${index}`} style={styles.card}>
                 <Text style={styles.cardTitle}>{goal}</Text>
                 <Text style={styles.text}>Status: {GOAL_STATUS[goal] ?? 'aktiv'}</Text>
                 <Text style={styles.text}>Kategoriebezug: Mental-Load Alltag</Text>
+                <View style={styles.row}>
+                  <Pressable style={styles.secondary} onPress={() => { setEditingGoalIndex(index); setGoalDraft(goal); }}><Text>Bearbeiten</Text></Pressable>
+                  <Pressable style={styles.secondary} onPress={() => removeGoal(index)}><Text>Löschen</Text></Pressable>
+                </View>
               </View>
             ))}
             {session.goals.length === 0 && <Text style={styles.text}>Noch keine Ziele ausgewählt.</Text>}
+            <View style={styles.card}>
+              <TextInput placeholder="Neues Ziel" value={goalDraft} onChangeText={setGoalDraft} style={styles.input} />
+              <Pressable
+                style={styles.primary}
+                onPress={() => {
+                  const clean = goalDraft.trim();
+                  if (!clean) return;
+                  if (editingGoalIndex === null) {
+                    addGoal(clean);
+                  } else {
+                    updateGoal(editingGoalIndex, clean);
+                    setEditingGoalIndex(null);
+                  }
+                  setGoalDraft('');
+                }}
+              >
+                <Text style={styles.primaryText}>{editingGoalIndex === null ? 'Neues Ziel hinzufügen' : 'Ziel speichern'}</Text>
+              </Pressable>
+            </View>
             <Pressable style={styles.secondary} onPress={() => router.push('/ziele-auswahl' as never)}>
               <Text style={styles.secondaryText}>Ziele anpassen</Text>
             </Pressable>
@@ -179,9 +206,14 @@ export default function StartseiteScreen() {
             {session.tasks.map((task) => (
               <View key={task.id} style={styles.card}>
                 <Text style={styles.cardTitle}>{task.title}</Text>
-                <Text style={styles.text}>Verantwortlich: {task.owner === 'initiator' ? 'Ich' : task.owner === 'partner' ? 'Partner' : 'Nicht zugeordnet'}</Text>
+                <Text style={styles.text}>Verantwortlich: {task.owner === 'initiator' ? initiatorName : task.owner === 'partner' ? partnerName : 'Nicht zugeordnet'}</Text>
                 <Text style={styles.text}>Zugeordnetes Ziel: {session.goals[0] ?? 'Noch kein Ziel zugeordnet'}</Text>
-                <Text style={styles.text}>Status: {task.owner ? 'aktiv' : 'offen'}</Text>
+                <Text style={styles.text}>Status: {task.status}</Text>
+                <View style={styles.row}>
+                  <Pressable style={styles.secondary} onPress={() => updateTask(task.id, { status: 'aktiv' })}><Text>Aktiv</Text></Pressable>
+                  <Pressable style={styles.secondary} onPress={() => updateTask(task.id, { status: 'pausiert' })}><Text>Pausieren</Text></Pressable>
+                  <Pressable style={styles.secondary} onPress={() => removeTask(task.id)}><Text>Löschen</Text></Pressable>
+                </View>
               </View>
             ))}
             <View style={styles.card}>
@@ -233,6 +265,7 @@ const styles = StyleSheet.create({
   primaryText: { color: '#fff', textAlign: 'center', fontWeight: '700' },
   secondary: { borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 10, padding: 12 },
   secondaryText: { textAlign: 'center', fontWeight: '600' },
+  row: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   iconButton: { borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 999, width: 38, height: 38, alignItems: 'center', justifyContent: 'center' },
   iconText: { fontSize: 18 },

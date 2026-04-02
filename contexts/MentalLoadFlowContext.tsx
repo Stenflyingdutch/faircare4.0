@@ -30,6 +30,9 @@ export type TaskItem = {
   id: string;
   title: string;
   owner: 'initiator' | 'partner' | null;
+  status: 'offen' | 'aktiv' | 'pausiert';
+  goal: string | null;
+  details: string;
 };
 
 export type WeeklyReviewAnswer = {
@@ -106,9 +109,9 @@ const defaultSession: MentalLoadSession = {
   goals: [],
   goalStatus: 'not_started',
   tasks: [
-    { id: 'task_1', title: 'Arzttermine und Gesundheit koordinieren', owner: null },
-    { id: 'task_2', title: 'Termine mit Kita oder Schule im Blick halten', owner: null },
-    { id: 'task_3', title: 'Alltagsvorbereitung für die Woche planen', owner: null },
+    { id: 'task_1', title: 'Arzttermine und Gesundheit koordinieren', owner: null, status: 'offen', goal: null, details: '' },
+    { id: 'task_2', title: 'Termine mit Kita oder Schule im Blick halten', owner: null, status: 'offen', goal: null, details: '' },
+    { id: 'task_3', title: 'Alltagsvorbereitung für die Woche planen', owner: null, status: 'offen', goal: null, details: '' },
   ],
   weeklyReview: {
     lastCompletedAt: null,
@@ -139,7 +142,12 @@ type ContextValue = {
   setInviteCode: (code: string) => void;
   setPendingInviteCode: (code: string | null) => void;
   setGoals: (goals: GoalOption[]) => void;
+  addGoal: (goal: string) => void;
+  updateGoal: (index: number, goal: string) => void;
+  removeGoal: (index: number) => void;
   setTaskOwner: (taskId: string, owner: TaskItem['owner']) => void;
+  updateTask: (taskId: string, patch: Partial<Omit<TaskItem, 'id'>>) => void;
+  removeTask: (taskId: string) => void;
   addTask: (title: string, owner?: TaskItem['owner']) => void;
   hydrateAnswers: (role: 'initiator' | 'partner', answers: MentalLoadAnswer[], quizCompleted?: boolean) => void;
   completeSetup: () => void;
@@ -311,10 +319,29 @@ export function MentalLoadFlowProvider({ children }: { children: ReactNode }) {
         })),
       setPendingInviteCode: (code) => setSession((prev) => ({ ...prev, pendingInviteCode: code })),
       setGoals: (goals) => setSession((prev) => ({ ...prev, goals, goalStatus: 'in_progress' })),
+      addGoal: (goal) =>
+        setSession((prev) => ({ ...prev, goals: [...prev.goals, goal as GoalOption], goalStatus: 'in_progress' })),
+      updateGoal: (index, goal) =>
+        setSession((prev) => ({
+          ...prev,
+          goals: prev.goals.map((item, current) => (current === index ? (goal as GoalOption) : item)),
+        })),
+      removeGoal: (index) =>
+        setSession((prev) => ({ ...prev, goals: prev.goals.filter((_, current) => current !== index) })),
       setTaskOwner: (taskId, owner) =>
         setSession((prev) => ({
           ...prev,
-          tasks: prev.tasks.map((task) => (task.id === taskId ? { ...task, owner } : task)),
+          tasks: prev.tasks.map((task) => (task.id === taskId ? { ...task, owner, status: owner ? 'aktiv' : task.status } : task)),
+        })),
+      updateTask: (taskId, patch) =>
+        setSession((prev) => ({
+          ...prev,
+          tasks: prev.tasks.map((task) => (task.id === taskId ? { ...task, ...patch } : task)),
+        })),
+      removeTask: (taskId) =>
+        setSession((prev) => ({
+          ...prev,
+          tasks: prev.tasks.filter((task) => task.id !== taskId),
         })),
       addTask: (title, owner = null) =>
         setSession((prev) => ({
@@ -325,6 +352,9 @@ export function MentalLoadFlowProvider({ children }: { children: ReactNode }) {
               id: `task_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
               title: title.trim(),
               owner,
+              status: owner ? 'aktiv' : 'offen',
+              goal: prev.goals[0] ?? null,
+              details: '',
             },
           ],
         })),
