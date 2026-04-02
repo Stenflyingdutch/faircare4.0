@@ -82,15 +82,19 @@ function optionToShare(option: QuizOption, responderId: string, partnerId: strin
     return { [responderId]: 1, [partnerId]: 0 };
   }
 
-  if (option === 'partner') {
-    return { [responderId]: 0, [partnerId]: 1 };
+  if (option === 'eher_ich') {
+    return { [responderId]: 0.75, [partnerId]: 0.25 };
   }
 
-  if (option === 'beide' || option === 'unklar') {
+  if (option === 'beide') {
     return { [responderId]: 0.5, [partnerId]: 0.5 };
   }
 
-  return { [responderId]: 0.5, [partnerId]: 0.5 };
+  if (option === 'eher_partner') {
+    return { [responderId]: 0.25, [partnerId]: 0.75 };
+  }
+
+  return { [responderId]: 0, [partnerId]: 1 };
 }
 
 function normalizedDistance(first: Record<string, number>, second: Record<string, number>, userIds: string[]) {

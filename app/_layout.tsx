@@ -25,6 +25,7 @@ function RootNavigation() {
       <Stack.Screen name="registrieren" options={{ title: 'Ergebnis freischalten' }} />
       <Stack.Screen name="eigenes-ergebnis" options={{ title: 'Dein Ergebnis' }} />
       <Stack.Screen name="partner-einladen" options={{ title: 'Partner einladen' }} />
+      <Stack.Screen name="einladungscode" options={{ title: 'Einladungscode' }} />
       <Stack.Screen name="invite/[token]" options={{ title: 'Einladung' }} />
       <Stack.Screen name="gemeinsames-ergebnis" options={{ title: 'Gemeinsames Ergebnis' }} />
       <Stack.Screen name="ziele-auswahl" options={{ title: 'Ziele' }} />
@@ -33,7 +34,8 @@ function RootNavigation() {
       <Stack.Screen name="aufgaben-bestaetigung" options={{ title: 'Bestätigung' }} />
       <Stack.Screen name="weekly-review" options={{ title: 'Weekly Review' }} />
       <Stack.Screen name="startseite" options={{ title: 'Startseite' }} />
-      <Stack.Screen name="anmelden" options={{ title: 'Anmelden' }} />
+      <Stack.Screen name="familie-beitreten" options={{ title: 'Code eingeben' }} />
+      <Stack.Screen name="anmelden" options={{ title: 'Einloggen' }} />
     </Stack>
   );
 }

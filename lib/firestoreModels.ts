@@ -18,7 +18,7 @@ export interface QuizAnswer {
   userId: string | null;
   questionId: string;
   category: string;
-  answer: 'ich' | 'fifty' | 'partner';
+  answer: 'ich' | 'eher_ich' | 'beide' | 'eher_partner' | 'partner';
   stressLevel: number | null;
   updatedAt: FirestoreDate;
 }
@@ -107,4 +107,22 @@ export interface ChildProfile {
   name: string;
   birthDate: string;
   createdAt: FirestoreDate;
+}
+
+
+export interface IndividualCategoryResult {
+  category: string;
+  score: number;
+  averageStress: number | null;
+  highStress: boolean;
+}
+
+export interface SharedCategoryComparison {
+  category: string;
+  initiatorScore: number;
+  partnerScore: number;
+  scoreDifference: number;
+  highDifference: boolean;
+  unclearOwnership: boolean;
+  stressFlag: boolean;
 }
