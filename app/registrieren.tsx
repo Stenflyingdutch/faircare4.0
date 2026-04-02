@@ -1,22 +1,50 @@
 import { Redirect, router, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMentalLoadFlow } from '@/contexts/MentalLoadFlowContext';
 import { getGermanFirebaseError } from '@/lib/firebaseError';
 
 export default function RegistrierungScreen() {
-  const { user, register } = useAuth();
+  const { user, register, logout } = useAuth();
   const { saveInitiatorUser, savePartnerUser } = useMentalLoadFlow();
-  const params = useLocalSearchParams<{ mode?: string; stage?: string }>();
+  const params = useLocalSearchParams<{ mode?: string; stage?: string; forceGuest?: string }>();
   const isPartner = params.mode === 'partner';
   const isPartnerPreQuiz = isPartner && params.stage === 'prequiz';
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
   const [status, setStatus] = useState('');
+  const [isPreparingGuestFlow, setIsPreparingGuestFlow] = useState(false);
+  const forceGuest = params.forceGuest === '1';
 
-  if (user) {
+
+  useEffect(() => {
+    const prepare = async () => {
+      if (!forceGuest || !user) {
+        return;
+      }
+
+      setIsPreparingGuestFlow(true);
+      setStatus('Aktuelle Anmeldung wird beendet ...');
+      await logout();
+      setIsPreparingGuestFlow(false);
+      setStatus('');
+    };
+
+    prepare();
+  }, [forceGuest, logout, user]);
+
+  if (user && !forceGuest) {
     return <Redirect href={'/startseite' as never} />;
+  }
+
+  if (isPreparingGuestFlow || (user && forceGuest)) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.title}>Kurz registrieren</Text>
+        <Text style={styles.text}>Bitte kurz warten. Der aktuelle Account wird abgemeldet, damit der Partner fortfahren kann.</Text>
+      </View>
+    );
   }
 
   const handleContinue = async () => {
