@@ -3,6 +3,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMentalLoadFlow } from '@/contexts/MentalLoadFlowContext';
+import { loadMentalLoadAnswers } from '@/services/mentalLoadPersistenceService';
+import { collectionNames, getCurrentUserFamilyId } from '@/services/familyService';
+import { db } from '@/lib/firebase';
+import { doc, getDoc } from 'firebase/firestore';
 
 type MainTab = 'startseite' | 'ziele' | 'aufgaben' | 'review';
 
@@ -23,7 +27,21 @@ const GOAL_STATUS: Record<string, string> = {
 
 export default function StartseiteScreen() {
   const { user } = useAuth();
-  const { session, addTask, updateTask, removeTask, setupStatus, getInviteCode, addGoal, updateGoal, removeGoal } = useMentalLoadFlow();
+  const {
+    session,
+    addTask,
+    updateTask,
+    removeTask,
+    setupStatus,
+    getInviteCode,
+    setInviteCode,
+    saveInitiatorUser,
+    savePartnerUser,
+    hydrateAnswers,
+    addGoal,
+    updateGoal,
+    removeGoal,
+  } = useMentalLoadFlow();
   const params = useLocalSearchParams<{ fromLogin?: string }>();
   const [activeTab, setActiveTab] = useState<MainTab>('startseite');
   const [newTaskTitle, setNewTaskTitle] = useState('');
@@ -58,6 +76,57 @@ export default function StartseiteScreen() {
     !isInitiator &&
     Boolean(session.partnerUser) &&
     session.anonymousQuizSession.partnerQuizCompleted;
+
+  useEffect(() => {
+    const syncFamilyContext = async () => {
+      if (!user?.uid) {
+        return;
+      }
+
+      const familyId = await getCurrentUserFamilyId(user.uid);
+      if (!familyId) {
+        return;
+      }
+
+      const familySnapshot = await getDoc(doc(db, collectionNames.families, familyId));
+      const familyData = familySnapshot.data() as { inviteCode?: string; memberIds?: string[] } | undefined;
+
+      if (familyData?.inviteCode) {
+        setInviteCode(familyData.inviteCode);
+      }
+
+      const memberIds = familyData?.memberIds ?? [];
+      if (memberIds.length === 0) {
+        return;
+      }
+
+      const initiatorUid = memberIds[0];
+      const partnerUid = memberIds.find((memberId) => memberId !== initiatorUid) ?? null;
+
+      const initiatorAnswers = await loadMentalLoadAnswers(initiatorUid);
+      hydrateAnswers('initiator', initiatorAnswers.initiatorAnswers, initiatorAnswers.initiatorQuizCompleted);
+
+      if (partnerUid) {
+        const partnerAnswers = await loadMentalLoadAnswers(partnerUid);
+        const partnerProfileSnapshot = await getDoc(doc(db, collectionNames.users, partnerUid));
+        const partnerProfile = partnerProfileSnapshot.data() as { displayName?: string; email?: string } | undefined;
+
+        savePartnerUser({
+          id: partnerUid,
+          displayName: partnerProfile?.displayName ?? 'Partner',
+          email: partnerProfile?.email ?? '',
+        });
+
+        hydrateAnswers('partner', partnerAnswers.partnerAnswers, partnerAnswers.partnerQuizCompleted);
+      }
+
+      const ownProfileSnapshot = await getDoc(doc(db, collectionNames.users, user.uid));
+      const ownProfile = ownProfileSnapshot.data() as { displayName?: string; email?: string } | undefined;
+      saveInitiatorUser({ id: user.uid, displayName: ownProfile?.displayName ?? 'Ich', email: ownProfile?.email ?? user.email ?? '' });
+    };
+
+    syncFamilyContext();
+  }, [hydrateAnswers, saveInitiatorUser, savePartnerUser, setInviteCode, user?.uid]);
 
   useEffect(() => {
     if (
@@ -197,7 +266,7 @@ export default function StartseiteScreen() {
           <Pressable onPress={() => router.push('/eigenes-ergebnis' as never)}>
             <Text style={styles.link}>Individuelles Ergebnis ansehen</Text>
           </Pressable>
-          <Text style={styles.text}>Einladungscode: {getInviteCode()}</Text>
+          {isInitiator && <Text style={styles.text}>Einladungscode: {getInviteCode()}</Text>}
           <Text style={styles.text}>Partnerstatus: {session.pairOrHouseholdContext.inviteStatus}</Text>
           <Pressable onPress={() => router.push('/partner-einladen' as never)}>
             <Text style={styles.link}>Partner verknüpfen</Text>
