@@ -152,10 +152,16 @@ export function MentalLoadFlowProvider({ children }: { children: ReactNode }) {
       saveInitiatorUser: (profile) => setSession((prev) => ({ ...prev, initiatorUser: profile })),
       savePartnerUser: (profile) => setSession((prev) => ({ ...prev, partnerUser: profile })),
       claimInvite: () =>
-        setSession((prev) => ({
-          ...prev,
-          pairOrHouseholdContext: { ...prev.pairOrHouseholdContext, inviteStatus: 'accepted' },
-        })),
+        setSession((prev) => {
+          if (prev.pairOrHouseholdContext.inviteStatus === 'accepted') {
+            return prev;
+          }
+
+          return {
+            ...prev,
+            pairOrHouseholdContext: { ...prev.pairOrHouseholdContext, inviteStatus: 'accepted' },
+          };
+        }),
       completePartnerFlow: () =>
         setSession((prev) => ({
           ...prev,
